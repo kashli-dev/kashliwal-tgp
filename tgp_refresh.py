@@ -1,0 +1,255 @@
+"""
+tgp_refresh.py  —  Kashliwal Motors Parts Inventory Refresh
+============================================================
+Reads Siebel CSV exports and pushes data to the Render PostgreSQL database.
+Run this every morning after exporting CSVs from Siebel.
+
+FOLDER STRUCTURE EXPECTED:
+  C:\TataExports\
+    Inventory\
+      dimapur_inventory.csv
+      dibrugarh_inventory.csv
+      jorhat_inventory.csv
+    In transit\
+      dimapur_transit.csv
+      dibrugarh_transit.csv
+      jorhat_transit.csv
+    output__22_.csv   (price list — any CSV with 'output' or 'price' in name)
+
+SETUP (one-time):
+  pip install pandas openpyxl psycopg2-binary
+"""
+
+import pandas as pd
+import re
+import os
+import sys
+import psycopg2
+import psycopg2.extras
+from datetime import datetime
+from pathlib import Path
+
+# ── CONFIG ────────────────────────────────────────────────────────────────────
+# Paste your Render PostgreSQL connection string here:
+DATABASE_URL = "postgresql://user:password@host/dbname"
+
+# Folder where your Siebel exports live:
+EXPORT_FOLDER = r"C:\TataExports"
+
+# Path to Alternate_Part_Numbers.xlsx (same folder as this script by default):
+SCRIPT_DIR   = Path(__file__).parent
+ALT_FILE     = SCRIPT_DIR / "Alternate_Part_Numbers.xlsx"
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def log(msg): print(f"  {msg}")
+
+def read_inv(path):
+    df = pd.read_csv(path, encoding='utf-16', sep='\t', quotechar='"', dtype=str)
+    df['Part #'] = df['Part #'].apply(lambda s: str(s).strip().strip('"').strip())
+    return df
+
+def read_transit(path):
+    with open(path,'rb') as f: raw = f.read(4)
+    enc = 'utf-16' if raw[:2]==b'\xff\xfe' else 'latin1'
+    df = pd.read_csv(path, encoding=enc, sep='\t', dtype=str)
+    df['Part #'] = df['Part #'].apply(lambda s: str(s).strip().strip('"').strip())
+    df['Recd Qty'] = pd.to_numeric(df['Recd Qty'], errors='coerce').fillna(0).astype(int)
+    return df.groupby('Part #')['Recd Qty'].sum().to_dict()
+
+def clean_qty(s):
+    try: return int(float(str(s).strip().replace(',','')))
+    except: return 0
+
+def parse_mrp(s):
+    nums = re.sub(r'[^\d.]','',str(s)).replace(',','')
+    parts = nums.split('.')
+    if len(parts)<=2:
+        try: return float(nums)
+        except: return 0.0
+    else:
+        try: return float(parts[-2]+'.'+parts[-1])
+        except: return 0.0
+
+def find_price_list(folder):
+    for f in Path(folder).glob("*.csv"):
+        if any(k in f.name.lower() for k in ['output','price']):
+            return str(f)
+    raise FileNotFoundError(f"No price list CSV found in {folder}")
+
+
+def main():
+    print("\n" + "="*55)
+    print("  KASHLIWAL MOTORS — TGP PARTS INVENTORY REFRESH")
+    print("="*55)
+
+    export = Path(EXPORT_FOLDER)
+    inv_folder = export / "Inventory"
+    tr_folder  = export / "In transit"
+
+    # ── Load inventory CSVs
+    log("Loading inventory files...")
+    dib = read_inv(inv_folder / "dibrugarh_inventory.csv")
+    dim = read_inv(inv_folder / "dimapur_inventory.csv")
+    jor = read_inv(inv_folder / "jorhat_inventory.csv")
+
+    # ── Load transit CSVs
+    log("Loading transit files...")
+    tr_dib = read_transit(tr_folder / "dibrugarh_transit.csv")
+    tr_dim = read_transit(tr_folder / "dimapur_transit.csv")
+    tr_jor = read_transit(tr_folder / "jorhat_transit.csv")
+
+    # ── Load price list
+    log("Loading price list...")
+    pl_path = find_price_list(EXPORT_FOLDER)
+    with open(pl_path,'rb') as f: enc_raw = f.read(4)
+    enc = 'utf-16' if enc_raw[:2]==b'\xff\xfe' else 'latin1'
+    pl = pd.read_csv(pl_path, encoding=enc, sep='\t', dtype=str)
+    pl = pl[pl['UMRP'].notna() & pl['UMRP'].str.contains('Rs', na=False)].copy()
+    pl['Part #'] = pl['Part #'].apply(lambda s: str(s).strip().strip('"').strip())
+    pl['MRP'] = pl['UMRP'].apply(parse_mrp)
+
+    # ── Load alternate parts
+    log("Loading alternate parts...")
+    import openpyxl as ox
+    awb = ox.load_workbook(ALT_FILE)
+    alt_map = {}
+    for row in awb.active.iter_rows(min_row=2, values_only=True):
+        if row[0] and row[1]:
+            a, b = str(row[0]).strip(), str(row[1]).strip()
+            alt_map.setdefault(a,[]).append(b)
+            alt_map.setdefault(b,[]).append(a)
+    for k in alt_map: alt_map[k] = list(dict.fromkeys(alt_map[k]))
+
+    # ── Build maps
+    price_map = {}
+    for _, r in pl.iterrows():
+        p = r['Part #']
+        if p not in price_map:
+            dc = str(r.get('Discount Code (CVBU)','') or '').strip()
+            price_map[p] = {'Desc': str(r['Part Description']).strip(), 'MRP': r['MRP'], 'DC': dc}
+
+    def desc_map(df):
+        d = {}
+        for _, r in df.iterrows():
+            p = r['Part #']
+            if p not in d: d[p] = str(r.get('Description','')).strip()
+        return d
+    dm_d = desc_map(dim); dib_d = desc_map(dib); jor_d = desc_map(jor)
+
+    def inv_map(df):
+        d = {}
+        for _, r in df.iterrows():
+            p = r['Part #']; q = clean_qty(r.get('Qty',0))
+            d[p] = d.get(p,0) + q
+        return d
+    map_dib = inv_map(dib)
+    dim_irs = dim[dim['Inventory Location']=='DIMAPUR'].copy()
+    dim_reg = dim[dim['Inventory Location']!='DIMAPUR'].copy()
+    map_dim = inv_map(dim_reg)
+    map_irs = inv_map(dim_irs)
+    map_jor = inv_map(jor)
+
+    parts_in_dib = set(dib['Part #'])
+    parts_in_jor = set(jor['Part #'])
+    parts_in_dim = set(dim_reg['Part #'])
+    parts_in_irs = set(dim_irs['Part #'])
+    irs_set      = set(dim_irs['Part #'])
+
+    def stock_label(part, qty_map, parts_in_loc):
+        if part not in parts_in_loc: return '-'
+        return 'Out of Stock' if qty_map.get(part,0)==0 else str(qty_map.get(part,0))
+
+    def transit_label(part, tr_map):
+        qty = tr_map.get(part, 0)
+        return str(qty) if qty > 0 else '-'
+
+    def alt_stock_note(part):
+        available = []
+        for alt in alt_map.get(part, []):
+            locs = []
+            q_dib = map_dib.get(alt,0)
+            q_jor = map_jor.get(alt,0)
+            q_dim = map_dim.get(alt,0)
+            q_irs = map_irs.get(alt,0)
+            if q_dib>0: locs.append(f'Dibrugarh: {q_dib}')
+            if q_jor>0: locs.append(f'Jorhat: {q_jor}')
+            if q_dim>0: locs.append(f'Dimapur: {q_dim}')
+            if q_irs>0: locs.append(f'Dimapur IRS: {q_irs}')
+            if locs: available.append(f"{alt}  [{', '.join(locs)}]")
+        return 'Alt. available:  ' + '   |   '.join(available) if available else ''
+
+    all_parts = sorted(set(
+        list(map_dib)+list(map_dim)+list(map_irs)+list(map_jor)
+        +list(tr_dib)+list(tr_dim)+list(tr_jor)))
+
+    log(f"Building {len(all_parts):,} parts...")
+
+    rows = []
+    for p in all_parts:
+        pi   = price_map.get(p, {})
+        desc = pi.get('Desc') or dm_d.get(p) or dib_d.get(p) or jor_d.get(p,'')
+        alts = '; '.join(alt_map.get(p,[])) or '-'
+        rows.append((
+            str(p), desc, pi.get('MRP', None), pi.get('DC',''),
+            stock_label(p, map_dib, parts_in_dib),
+            stock_label(p, map_jor, parts_in_jor),
+            stock_label(p, map_dim, parts_in_dim),
+            alts,
+            stock_label(p, map_irs, parts_in_irs),
+            'YES' if p in irs_set else 'NO',
+            alt_stock_note(p),
+            transit_label(p, tr_dib),
+            transit_label(p, tr_jor),
+            transit_label(p, tr_dim),
+        ))
+
+    # ── Push to database
+    log("Connecting to database...")
+    db_url = DATABASE_URL
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://","postgresql://",1)
+    conn = psycopg2.connect(db_url)
+    cur  = conn.cursor()
+
+    log("Clearing old data...")
+    cur.execute("TRUNCATE TABLE tgp_parts")
+
+    log("Inserting new data...")
+    psycopg2.extras.execute_values(cur, """
+        INSERT INTO tgp_parts (
+            part_number, description, mrp, discount_code,
+            dibrugarh, jorhat, dimapur, alternate_parts,
+            dimapur_irs, is_irs, alt_availability,
+            tr_dibrugarh, tr_jorhat, tr_dimapur
+        ) VALUES %s
+    """, rows, page_size=500)
+
+    cur.execute("INSERT INTO tgp_meta DEFAULT VALUES")
+    conn.commit()
+    conn.close()
+
+    print()
+    print("="*55)
+    print(f"  ✅ REFRESH COMPLETE")
+    print(f"     {len(rows):,} parts loaded at {datetime.now().strftime('%d-%b-%Y %H:%M')}")
+    print("="*55 + "\n")
+    input("Press Enter to close...")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except FileNotFoundError as e:
+        print(f"\n❌ FILE NOT FOUND: {e}")
+        input("\nPress Enter to close...")
+        sys.exit(1)
+    except psycopg2.OperationalError as e:
+        print(f"\n❌ DATABASE CONNECTION FAILED: {e}")
+        print("   Check the DATABASE_URL in this script.")
+        input("\nPress Enter to close...")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n❌ ERROR: {e}")
+        input("\nPress Enter to close...")
+        sys.exit(1)
