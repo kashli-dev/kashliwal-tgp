@@ -10,7 +10,10 @@ export default function LastUpdated() {
 
   if (!ts) return null
 
-  const d = new Date(ts)
+  // Render stores timestamps in UTC — ensure Z suffix so JS parses as UTC
+  const normalized = /Z|[+-]\d{2}:?\d{2}$/.test(ts) ? ts : ts + "Z"
+  const d = new Date(normalized)
+
   const formatted = d.toLocaleString("en-IN", {
     day: "2-digit", month: "short", year: "numeric",
     hour: "2-digit", minute: "2-digit", hour12: true,

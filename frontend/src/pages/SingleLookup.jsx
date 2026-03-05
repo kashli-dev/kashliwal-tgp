@@ -32,13 +32,9 @@ export default function SingleLookup() {
   }
 
   const handleKey = (e) => {
-    if (e.key === "Enter") {
-      clearTimeout(timerRef.current)
-      lookup(query)
-    }
+    if (e.key === "Enter") { clearTimeout(timerRef.current); lookup(query) }
   }
 
-  // Compute total stock
   const total = result?.found
     ? ["dibrugarh","jorhat","dimapur"].reduce((sum, loc) => {
         const v = result[loc]
@@ -48,7 +44,6 @@ export default function SingleLookup() {
 
   return (
     <div>
-      {/* Search */}
       <div className="search-wrap">
         <span className="search-icon">⌕</span>
         <input
@@ -63,32 +58,22 @@ export default function SingleLookup() {
         <span className="search-label">Part No.</span>
       </div>
 
-      {/* Loading */}
       {loading && (
-        <div className="loading">
-          <div className="spinner" />
-          Looking up part...
-        </div>
+        <div className="loading"><div className="spinner" />Looking up part...</div>
       )}
 
-      {/* Error */}
       {error && <div className="not-found">{error}</div>}
 
-      {/* Not found */}
       {!loading && !error && result && !result.found && (
         <div className="not-found">
           No part found for <strong style={{color:"var(--white50)"}}>{result.part_number}</strong>
         </div>
       )}
 
-      {/* Result */}
       {!loading && !error && result?.found && (
         <div className="result-card">
-
-          {/* Description */}
           <div className="result-desc">{result.description || "—"}</div>
 
-          {/* MRP + DC + Alternates */}
           <div className="result-meta">
             <span className="result-mrp">
               Rs.&nbsp;{Number(result.mrp).toLocaleString("en-IN", {minimumFractionDigits:2})}
@@ -97,61 +82,35 @@ export default function SingleLookup() {
               <span className="result-dc">{result.discount_code}</span>
             )}
           </div>
+
           {result.alternate_parts && result.alternate_parts !== "-" && result.alternate_parts !== "--" && (
             <div className="result-alt-parts" style={{marginBottom:20}}>
               Alt: {result.alternate_parts}
             </div>
           )}
 
-          {/* Stock */}
           <div className="stock-label">Stock Availability</div>
           <div className="stock-rows">
-            <StockRow label="Dibrugarh" stock={result.dibrugarh} transit={result.tr_dibrugarh} />
-            <StockRow label="Jorhat"    stock={result.jorhat}    transit={result.tr_jorhat} />
-            <StockRow label="Dimapur"   stock={result.dimapur}   transit={result.tr_dimapur} />
+            <StockRow label="DIB" stock={result.dibrugarh} transit={result.tr_dibrugarh} />
+            <StockRow label="JRH" stock={result.jorhat}    transit={result.tr_jorhat} />
+            <StockRow label="DMU" stock={result.dimapur}   transit={result.tr_dimapur} />
             {result.dimapur_irs && result.dimapur_irs !== "-" &&
              result.dimapur_irs !== "Out of Stock" && Number(result.dimapur_irs) > 0 && (
-              <StockRow label="Dimapur IRS" stock={result.dimapur_irs} transit={null} />
+              <StockRow label="DMU IRS" stock={result.dimapur_irs} transit={null} />
             )}
           </div>
 
-          {/* Total */}
           <div className="stock-total">
-            <span>Total (Dibrugarh + Jorhat + Dimapur)</span>
+            <span>Total (DIB + JRH + DMU)</span>
             <span className="stock-total-val">{total.toLocaleString()}</span>
           </div>
 
-          {/* Alt availability note */}
           {result.alt_availability && (
             <div className="alt-note">
               <div className="alt-note-label">Alternate Available</div>
               <div className="alt-note-text">{result.alt_availability}</div>
             </div>
           )}
-
-          {/* Dates */}
-          <div className="dates-section">
-            <div className="dates-label">Last Received / Last Issue</div>
-            <div className="dates-grid">
-              {[
-                { loc: "Dibrugarh", recv: result.dib_last_received, issue: result.dib_last_issue },
-                { loc: "Jorhat",    recv: result.jor_last_received, issue: result.jor_last_issue },
-                { loc: "Dimapur",   recv: result.dim_last_received, issue: result.dim_last_issue },
-              ].map(({ loc, recv, issue }) => (
-                <div className="date-card" key={loc}>
-                  <div className="date-loc">{loc}</div>
-                  <div className="date-row">
-                    <span className="date-key">Received</span>
-                    <span className="date-val">{recv || "—"}</span>
-                  </div>
-                  <div className="date-row">
-                    <span className="date-key">Last Issue</span>
-                    <span className="date-val">{issue || "—"}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       )}
 

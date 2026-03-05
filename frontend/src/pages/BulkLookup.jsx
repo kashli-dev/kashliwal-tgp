@@ -16,67 +16,76 @@ function transitVal(val) {
 }
 
 function exportToExcel(results) {
+  const stockNum = (v) => {
+    if (!v || v === "-" || v === "--") return ""
+    if (v === "Out of Stock" || v === "0") return 0
+    return Number(v)
+  }
+  const trNum = (v) => {
+    if (!v || v === "-" || v === "--") return ""
+    const n = Number(v); return n > 0 ? n : ""
+  }
+
   const rows = results.map((row, i) => {
     if (!row.found) return {
       "#": i + 1,
       "Part Number": row.part_number,
       "Description": "Not found",
-      "MRP (Rs.)": "", "Dibrugarh": "", "Jorhat": "", "Dimapur": "",
-      "Dib Transit": "", "Jor Transit": "", "Dim Transit": "",
+      "MRP (Rs.)": "",
+      "DIB": "", "JRH": "", "DMU": "",
+      "DIB Transit": "", "JRH Transit": "", "DMU Transit": "",
+      "Alternate Part No.": "",
       "Alt. Availability": "",
-      "Last Received Date": "", "Last Issue Date": ""
+      "DIB Received": "", "DIB Issue": "",
+      "JRH Received": "", "JRH Issue": "",
+      "DMU Received": "", "DMU Issue": "",
     }
-
-    const stockNum = (v) => {
-      if (!v || v === "-" || v === "--") return ""
-      if (v === "Out of Stock" || v === "0") return 0
-      return Number(v)
-    }
-    const trNum = (v) => {
-      if (!v || v === "-" || v === "--") return ""
-      const n = Number(v)
-      return n > 0 ? n : ""
-    }
-
     return {
-      "#": i + 1,
-      "Part Number": row.part_number,
-      "Description": row.description || "",
-      "MRP (Rs.)": row.mrp ? Number(row.mrp) : "",
-      "Dibrugarh": stockNum(row.dibrugarh),
-      "Jorhat":    stockNum(row.jorhat),
-      "Dimapur":   stockNum(row.dimapur),
-      "Dib Transit": trNum(row.tr_dibrugarh),
-      "Jor Transit": trNum(row.tr_jorhat),
-      "Dim Transit": trNum(row.tr_dimapur),
-      "Alt. Availability": row.alt_availability || "",
-      "Last Received Date": row.last_received_date || "",
-      "Last Issue Date":    row.last_issue_date    || "",
+      "#":                  i + 1,
+      "Part Number":        row.part_number,
+      "Description":        row.description || "",
+      "MRP (Rs.)":          row.mrp ? Number(row.mrp) : "",
+      "DIB":                stockNum(row.dibrugarh),
+      "JRH":                stockNum(row.jorhat),
+      "DMU":                stockNum(row.dimapur),
+      "DIB Transit":        trNum(row.tr_dibrugarh),
+      "JRH Transit":        trNum(row.tr_jorhat),
+      "DMU Transit":        trNum(row.tr_dimapur),
+      "Alternate Part No.": row.alternate_parts && row.alternate_parts !== "-" ? row.alternate_parts : "",
+      "Alt. Availability":  row.alt_availability || "",
+      "DIB Received":       row.dib_last_received || "",
+      "DIB Issue":          row.dib_last_issue    || "",
+      "JRH Received":       row.jor_last_received || "",
+      "JRH Issue":          row.jor_last_issue    || "",
+      "DMU Received":       row.dim_last_received || "",
+      "DMU Issue":          row.dim_last_issue    || "",
     }
   })
 
   const ws = XLSX.utils.json_to_sheet(rows)
-
-  // Column widths
   ws["!cols"] = [
-    { wch: 4 },   // #
+    { wch: 4  },  // #
     { wch: 18 },  // Part Number
     { wch: 42 },  // Description
     { wch: 12 },  // MRP
-    { wch: 12 },  // Dibrugarh
-    { wch: 10 },  // Jorhat
-    { wch: 10 },  // Dimapur
-    { wch: 12 },  // Dib Transit
-    { wch: 12 },  // Jor Transit
-    { wch: 12 },  // Dim Transit
-    { wch: 48 },  // Alt Availability
-    { wch: 22 },  // Last Received Date
-    { wch: 22 },  // Last Issue Date
+    { wch: 8  },  // DIB
+    { wch: 8  },  // JRH
+    { wch: 8  },  // DMU
+    { wch: 12 },  // DIB Transit
+    { wch: 12 },  // JRH Transit
+    { wch: 12 },  // DMU Transit
+    { wch: 28 },  // Alternate Part No.
+    { wch: 52 },  // Alt. Availability
+    { wch: 14 },  // DIB Received
+    { wch: 14 },  // DIB Issue
+    { wch: 14 },  // JRH Received
+    { wch: 14 },  // JRH Issue
+    { wch: 14 },  // DMU Received
+    { wch: 14 },  // DMU Issue
   ]
 
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, "Bulk Lookup")
-
   const now = new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }).replace(/\//g, "-")
   XLSX.writeFile(wb, `TGP_Bulk_Lookup_${now}.xlsx`)
 }
@@ -126,9 +135,7 @@ export default function BulkLookup() {
           </button>
           <button className="btn-clear" onClick={handleClear}>Clear</button>
           {results && (
-            <button className="btn-export" onClick={() => exportToExcel(results)}>
-              Export .xlsx
-            </button>
+            <button className="btn-export" onClick={() => exportToExcel(results)}>↓ Export .xlsx</button>
           )}
           {partList.length > 0 && (
             <span className="bulk-count">{partList.length} part{partList.length !== 1 ? "s" : ""}</span>
@@ -161,19 +168,13 @@ export default function BulkLookup() {
                   <th className="col-part">Part Number</th>
                   <th className="col-desc">Description</th>
                   <th className="col-mrp">MRP</th>
-                  <th className="col-stock">Dibrugarh</th>
-                  <th className="col-stock">Jorhat</th>
-                  <th className="col-stock">Dimapur</th>
-                  <th className="col-transit transit">Dib Transit</th>
-                  <th className="col-transit transit">Jor Transit</th>
-                  <th className="col-transit transit">Dim Transit</th>
+                  <th className="col-stock">DIB</th>
+                  <th className="col-stock">JRH</th>
+                  <th className="col-stock">DMU</th>
+                  <th className="col-transit transit">DIB Transit</th>
+                  <th className="col-transit transit">JRH Transit</th>
+                  <th className="col-transit transit">DMU Transit</th>
                   <th className="col-alt">Alt. Availability</th>
-                  <th className="col-date">Dib Received</th>
-                  <th className="col-date">Dib Issue</th>
-                  <th className="col-date">Jor Received</th>
-                  <th className="col-date">Jor Issue</th>
-                  <th className="col-date">Dim Received</th>
-                  <th className="col-date">Dim Issue</th>
                 </tr>
               </thead>
               <tbody>
@@ -203,12 +204,6 @@ export default function BulkLookup() {
                       <td className="td-transit">{transitVal(row.tr_jorhat)}</td>
                       <td className="td-transit">{transitVal(row.tr_dimapur)}</td>
                       <td className="td-alt">{row.alt_availability || ""}</td>
-                      <td className="td-date">{row.dib_last_received || ""}</td>
-                      <td className="td-date">{row.dib_last_issue    || ""}</td>
-                      <td className="td-date">{row.jor_last_received || ""}</td>
-                      <td className="td-date">{row.jor_last_issue    || ""}</td>
-                      <td className="td-date">{row.dim_last_received || ""}</td>
-                      <td className="td-date">{row.dim_last_issue    || ""}</td>
                     </tr>
                   )
                 })}
