@@ -91,7 +91,9 @@ def bulk_lookup(part_numbers: List[str]):
                 alternate_parts, dimapur_irs,
                 alt_availability,
                 tr_dibrugarh, tr_jorhat, tr_dimapur,
-                last_received_date, last_issue_date
+                dib_last_received, dib_last_issue,
+                jor_last_received, jor_last_issue,
+                dim_last_received, dim_last_issue
             FROM tgp_parts
             WHERE part_number = ANY(%s)
         """, (normalized,))
