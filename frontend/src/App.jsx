@@ -31,7 +31,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="main">
+      <main className={`main${tab === "bulk" ? " bulk" : ""}`}>
         {tab === "single" ? <SingleLookup /> : <BulkLookup />}
       </main>
     </div>

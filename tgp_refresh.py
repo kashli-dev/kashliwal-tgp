@@ -143,12 +143,31 @@ def main():
             p = r['Part #']; q = clean_qty(r.get('Qty',0))
             d[p] = d.get(p,0) + q
         return d
+
+    def date_map(df, col):
+        """Returns dict of part# -> date string (date only, no time)"""
+        d = {}
+        for _, r in df.iterrows():
+            p = r['Part #']
+            v = str(r.get(col, '') or '').strip()
+            if v and v != 'nan':
+                # Strip time — keep only the date part (before first space)
+                d[p] = v.split(' ')[0]
+        return d
+
     map_dib = inv_map(dib)
     dim_irs = dim[dim['Inventory Location']=='DIMAPUR'].copy()
     dim_reg = dim[dim['Inventory Location']!='DIMAPUR'].copy()
     map_dim = inv_map(dim_reg)
     map_irs = inv_map(dim_irs)
     map_jor = inv_map(jor)
+
+    recv_dib = date_map(dib,     'Last Received Date')
+    recv_jor = date_map(jor,     'Last Received Date')
+    recv_dim = date_map(dim_reg, 'Last Received Date')
+    iss_dib  = date_map(dib,     'Last Issue Date')
+    iss_jor  = date_map(jor,     'Last Issue Date')
+    iss_dim  = date_map(dim_reg, 'Last Issue Date')
 
     parts_in_dib = set(dib['Part #'])
     parts_in_jor = set(jor['Part #'])
@@ -202,6 +221,12 @@ def main():
             transit_label(p, tr_dib),
             transit_label(p, tr_jor),
             transit_label(p, tr_dim),
+            recv_dib.get(p, ''),
+            iss_dib.get(p, ''),
+            recv_jor.get(p, ''),
+            iss_jor.get(p, ''),
+            recv_dim.get(p, ''),
+            iss_dim.get(p, ''),
         ))
 
     # ── Push to database
@@ -221,7 +246,10 @@ def main():
             part_number, description, mrp, discount_code,
             dibrugarh, jorhat, dimapur, alternate_parts,
             dimapur_irs, is_irs, alt_availability,
-            tr_dibrugarh, tr_jorhat, tr_dimapur
+            tr_dibrugarh, tr_jorhat, tr_dimapur,
+            dib_last_received, dib_last_issue,
+            jor_last_received, jor_last_issue,
+            dim_last_received, dim_last_issue
         ) VALUES %s
     """, rows, page_size=500)
 

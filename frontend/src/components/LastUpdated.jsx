@@ -14,7 +14,8 @@ export default function LastUpdated() {
   const formatted = d.toLocaleString("en-IN", {
     day: "2-digit", month: "short", year: "numeric",
     hour: "2-digit", minute: "2-digit", hour12: true,
-  })
+    timeZone: "Asia/Kolkata",
+  }) + " IST"
 
   return (
     <p className="last-updated">Data last updated: <span>{formatted}</span></p>

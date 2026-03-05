@@ -4,7 +4,7 @@ export default function StockRow({ label, stock, transit }) {
   const isNA    = stock === "-" || stock === null
 
   let qtyClass = "in-stock"
-  let qtyText  = isNum ? `${Number(stock).toLocaleString()} units` : ""
+  let qtyText  = isNum ? `${Number(stock).toLocaleString()}` : ""
   if (isOOS) { qtyClass = "out-stock"; qtyText = "Out of Stock" }
   if (isNA)  { qtyClass = "not-ord";   qtyText = "—" }
 

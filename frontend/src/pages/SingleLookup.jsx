@@ -118,7 +118,7 @@ export default function SingleLookup() {
           {/* Total */}
           <div className="stock-total">
             <span>Total (Dibrugarh + Jorhat + Dimapur)</span>
-            <span className="stock-total-val">{total.toLocaleString()} units</span>
+            <span className="stock-total-val">{total.toLocaleString()}</span>
           </div>
 
           {/* Alt availability note */}
@@ -128,6 +128,30 @@ export default function SingleLookup() {
               <div className="alt-note-text">{result.alt_availability}</div>
             </div>
           )}
+
+          {/* Dates */}
+          <div className="dates-section">
+            <div className="dates-label">Last Received / Last Issue</div>
+            <div className="dates-grid">
+              {[
+                { loc: "Dibrugarh", recv: result.dib_last_received, issue: result.dib_last_issue },
+                { loc: "Jorhat",    recv: result.jor_last_received, issue: result.jor_last_issue },
+                { loc: "Dimapur",   recv: result.dim_last_received, issue: result.dim_last_issue },
+              ].map(({ loc, recv, issue }) => (
+                <div className="date-card" key={loc}>
+                  <div className="date-loc">{loc}</div>
+                  <div className="date-row">
+                    <span className="date-key">Received</span>
+                    <span className="date-val">{recv || "—"}</span>
+                  </div>
+                  <div className="date-row">
+                    <span className="date-key">Last Issue</span>
+                    <span className="date-val">{issue || "—"}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 

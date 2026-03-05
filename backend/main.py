@@ -56,7 +56,10 @@ def get_part(part_number: str):
                 dibrugarh, jorhat, dimapur,
                 alternate_parts, dimapur_irs,
                 alt_availability,
-                tr_dibrugarh, tr_jorhat, tr_dimapur
+                tr_dibrugarh, tr_jorhat, tr_dimapur,
+                dib_last_received, dib_last_issue,
+                jor_last_received, jor_last_issue,
+                dim_last_received, dim_last_issue
             FROM tgp_parts
             WHERE part_number = %s
         """, (normalize(part_number),))
@@ -87,7 +90,8 @@ def bulk_lookup(part_numbers: List[str]):
                 dibrugarh, jorhat, dimapur,
                 alternate_parts, dimapur_irs,
                 alt_availability,
-                tr_dibrugarh, tr_jorhat, tr_dimapur
+                tr_dibrugarh, tr_jorhat, tr_dimapur,
+                last_received_date, last_issue_date
             FROM tgp_parts
             WHERE part_number = ANY(%s)
         """, (normalized,))
@@ -113,7 +117,10 @@ def search(q: str = Query(..., min_length=2)):
         cur.execute("""
             SELECT part_number, description, mrp,
                    dibrugarh, jorhat, dimapur,
-                   tr_dibrugarh, tr_jorhat, tr_dimapur
+                   tr_dibrugarh, tr_jorhat, tr_dimapur,
+                dib_last_received, dib_last_issue,
+                jor_last_received, jor_last_issue,
+                dim_last_received, dim_last_issue
             FROM tgp_parts
             WHERE part_number ILIKE %s OR description ILIKE %s
             LIMIT 20
