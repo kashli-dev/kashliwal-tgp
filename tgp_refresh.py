@@ -219,12 +219,12 @@ def main():
             q_jor = map_jor.get(alt,0)
             q_dim = map_dim.get(alt,0)
             q_irs = map_irs.get(alt,0)
-            if q_dib>0: locs.append(f'Dibrugarh: {q_dib}')
-            if q_jor>0: locs.append(f'Jorhat: {q_jor}')
-            if q_dim>0: locs.append(f'Dimapur: {q_dim}')
-            if q_irs>0: locs.append(f'Dimapur IRS: {q_irs}')
-            if locs: available.append(f"{alt}  [{', '.join(locs)}]")
-        return 'Alt. available:  ' + '   |   '.join(available) if available else ''
+            if q_dib>0: locs.append(f'DIB:{q_dib}')
+            if q_jor>0: locs.append(f'JRH:{q_jor}')
+            if q_dim>0: locs.append(f'DMU:{q_dim}')
+            if q_irs>0: locs.append(f'DMU IRS:{q_irs}')
+            if locs: available.append(f"{alt}|" + "|".join(locs))
+        return '|||'.join(available)
 
     all_parts = sorted(set(
         list(map_dib)+list(map_dim)+list(map_irs)+list(map_jor)

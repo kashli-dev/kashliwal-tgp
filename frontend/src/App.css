@@ -281,7 +281,7 @@ html, body, #root {
 .alt-note {
   background: var(--amber-dim);
   border: 1px solid var(--amber-ring);
-  padding: 12px 16px;
+  padding: 12px 14px;
   animation: fadeIn 0.2s ease;
 }
 .alt-note-label {
@@ -289,10 +289,41 @@ html, body, #root {
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--amber);
-  margin-bottom: 6px;
+  margin-bottom: 10px;
   font-weight: 600;
 }
-.alt-note-text { font-size: 11px; color: rgba(255,180,0,0.8); line-height: 1.6; }
+.alt-alts { display: flex; flex-direction: column; }
+.alt-block {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--amber-ring);
+}
+.alt-block:first-child { padding-top: 0; }
+.alt-block:last-child  { padding-bottom: 0; border-bottom: none; }
+.alt-part-num {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--amber);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.alt-wh-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.alt-wh-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255,180,0,0.05);
+  border: 1px solid var(--amber-ring);
+  padding: 2px 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.alt-wh-name { font-size: 10px; color: rgba(255,180,0,0.65); font-weight: 500; letter-spacing: 0.04em; }
+.alt-wh-qty  { font-family: var(--mono); font-size: 11px; color: var(--amber); font-weight: 500; }
 
 /* ── NOT FOUND ── */
 .not-found {
@@ -397,9 +428,7 @@ html, body, #root {
 .bulk-table {
   width: 100%;
   border-collapse: collapse;
-  table-layout: fixed;
   font-size: 12px;
-  min-width: 1050px;
 }
 .bulk-table thead { position: sticky; top: 0; z-index: 10; }
 .bulk-table th {
@@ -415,35 +444,40 @@ html, body, #root {
   white-space: nowrap;
 }
 .bulk-table th.transit { color: var(--blue); }
+.bulk-table th.grp-start { border-left: 1px solid var(--border2); }
 .bulk-table td {
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
+  white-space: nowrap;
 }
+.bulk-table td.grp-start { border-left: 1px solid var(--border2); }
 .bulk-table tr:last-child td { border-bottom: none; }
 .bulk-table tr:hover td { background: var(--white10); }
 .row-notfound { opacity: 0.4; }
 
-.col-idx     { width: 36px; }
-.col-part    { width: 140px; }
-.col-desc    { min-width: 180px; }
-.col-mrp     { width: 115px; }
-.col-stock   { width: 70px; text-align: center; }
-.col-transit { width: 80px; text-align: center; }
-.col-irs     { width: 70px; text-align: center; }
-.col-alt     { min-width: 160px; }
+.col-idx   { width: 36px; }
+.col-part  { width: 140px; }
+.col-desc  { white-space: normal; min-width: 160px; }
+.col-mrp   { width: 100px; }
+.col-stock { text-align: center; }
+.col-transit { text-align: center; }
+.col-irs   { text-align: center; }
+.col-altno { min-width: 120px; white-space: normal; }
+.col-alt   { min-width: 180px; white-space: normal; }
 
 .td-idx      { color: var(--white25); font-size: 10px; text-align: center; }
-.td-part     { font-family: var(--mono); font-size: 11px; color: var(--white80); white-space: nowrap; }
-.td-desc     { color: var(--white80); font-size: 11px; }
-.td-notfound { color: var(--white25); font-size: 11px; font-style: italic; }
-.td-mrp      { font-family: var(--mono); font-size: 11px; color: var(--green); white-space: nowrap; }
+.td-part     { font-family: var(--mono); font-size: 11px; color: var(--white80); }
+.td-desc     { color: var(--white80); font-size: 11px; white-space: normal; }
+.td-notfound { color: var(--white25); font-size: 11px; font-style: italic; white-space: normal; }
+.td-mrp      { font-family: var(--mono); font-size: 11px; color: var(--green); }
 .td-stock    { font-family: var(--mono); font-size: 12px; font-weight: 600; text-align: center; }
 .td-stock.in  { color: var(--white80); }
 .td-stock.oos { color: var(--red); }
 .td-stock.na  { color: var(--white25); font-size: 14px; }
 .td-transit  { font-family: var(--mono); font-size: 11px; text-align: center; color: var(--blue); }
-.td-alt      { font-size: 10px; color: rgba(255,180,0,0.7); line-height: 1.5; }
+.td-altno    { font-family: var(--mono); font-size: 10px; color: var(--white50); white-space: normal; }
+.td-alt      { font-size: 10px; color: rgba(255,180,0,0.7); line-height: 1.6; white-space: normal; }
 
 
 /* ── LOADING ── */

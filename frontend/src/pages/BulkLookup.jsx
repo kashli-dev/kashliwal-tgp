@@ -15,6 +15,11 @@ function transitVal(val) {
   return n > 0 ? n.toLocaleString() : ""
 }
 
+function formatMrp(mrp) {
+  if (!mrp) return "—"
+  return `Rs. ${Number(mrp).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
+}
+
 function exportToExcel(results) {
   const stockNum = (v) => {
     if (!v || v === "-" || v === "--") return ""
@@ -26,14 +31,16 @@ function exportToExcel(results) {
     const n = Number(v); return n > 0 ? n : ""
   }
 
-  const rows = results.map((row, i) => {
+  const makeRow = (row, i) => {
     if (!row.found) return {
       "#": i + 1,
       "Part Number": row.part_number,
       "Description": "Not found",
       "MRP (Rs.)": "",
-      "DIB": "", "JRH": "", "DMU": "", "DMU IRS": "",
-      "DIB Transit": "", "JRH Transit": "", "DMU Transit": "",
+      "DIB": "", "DIB Transit": "",
+      "JRH": "", "JRH Transit": "",
+      "DMU": "", "DMU Transit": "",
+      "DMU IRS": "",
       "Alternate Part No.": "",
       "Alt. Availability": "",
       "DIB Received": "", "DIB Issue": "",
@@ -44,15 +51,15 @@ function exportToExcel(results) {
       "#":                  i + 1,
       "Part Number":        row.part_number,
       "Description":        row.description || "",
-      "MRP (Rs.)":          row.mrp ? Number(row.mrp) : "",
+      "MRP (Rs.)":          row.mrp ? Math.round(Number(row.mrp)) : "",
       "DIB":                stockNum(row.dibrugarh),
-      "JRH":                stockNum(row.jorhat),
-      "DMU":                stockNum(row.dimapur),
-      "DMU IRS":            stockNum(row.dimapur_irs),
       "DIB Transit":        trNum(row.tr_dibrugarh),
+      "JRH":                stockNum(row.jorhat),
       "JRH Transit":        trNum(row.tr_jorhat),
+      "DMU":                stockNum(row.dimapur),
       "DMU Transit":        trNum(row.tr_dimapur),
-      "Alternate Part No.": row.alternate_parts && row.alternate_parts !== "-" ? row.alternate_parts : "",
+      "DMU IRS":            stockNum(row.dimapur_irs),
+      "Alternate Part No.": row.alternate_parts && row.alternate_parts !== "-" ? row.alternate_parts.replace(/;/g, ",") : "",
       "Alt. Availability":  row.alt_availability || "",
       "DIB Received":       row.dib_last_received || "",
       "DIB Issue":          row.dib_last_issue    || "",
@@ -61,7 +68,13 @@ function exportToExcel(results) {
       "DMU Received":       row.dim_last_received || "",
       "DMU Issue":          row.dim_last_issue    || "",
     }
-  })
+  }
+
+  // found first, not-found at bottom
+  const found    = results.filter(r => r.found)
+  const notFound = results.filter(r => !r.found)
+  const sorted   = [...found, ...notFound]
+  const rows     = sorted.map((row, i) => makeRow(row, i))
 
   const ws = XLSX.utils.json_to_sheet(rows)
   ws["!cols"] = [
@@ -70,12 +83,12 @@ function exportToExcel(results) {
     { wch: 42 },  // Description
     { wch: 12 },  // MRP
     { wch: 8  },  // DIB
-    { wch: 8  },  // JRH
-    { wch: 8  },  // DMU
-    { wch: 8  },  // DMU IRS
     { wch: 12 },  // DIB Transit
+    { wch: 8  },  // JRH
     { wch: 12 },  // JRH Transit
+    { wch: 8  },  // DMU
     { wch: 12 },  // DMU Transit
+    { wch: 8  },  // DMU IRS
     { wch: 28 },  // Alternate Part No.
     { wch: 52 },  // Alt. Availability
     { wch: 14 },  // DIB Received
@@ -116,6 +129,11 @@ export default function BulkLookup() {
   const handleClear = () => { setInput(""); setResults(null); setError(null) }
   const handleKeyDown = (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleLookup() }
 
+  // sort: found first, not-found at bottom
+  const sorted = results
+    ? [...results.filter(r => r.found), ...results.filter(r => !r.found)]
+    : null
+
   return (
     <div className="bulk-page">
       <div className="bulk-top">
@@ -154,7 +172,7 @@ export default function BulkLookup() {
         </div>
       )}
 
-      {results && !loading && (
+      {sorted && !loading && (
         <>
           <div className="bulk-summary">
             <span>{results.length} results</span>
@@ -170,43 +188,47 @@ export default function BulkLookup() {
                   <th className="col-part">Part Number</th>
                   <th className="col-desc">Description</th>
                   <th className="col-mrp">MRP</th>
-                  <th className="col-stock">DIB</th>
-                  <th className="col-stock">JRH</th>
-                  <th className="col-stock">DMU</th>
-                  <th className="col-irs">DMU IRS</th>
+                  <th className="col-stock grp-start">DIB</th>
                   <th className="col-transit transit">DIB Transit</th>
+                  <th className="col-stock grp-start">JRH</th>
                   <th className="col-transit transit">JRH Transit</th>
+                  <th className="col-stock grp-start">DMU</th>
                   <th className="col-transit transit">DMU Transit</th>
+                  <th className="col-irs grp-start">DMU IRS</th>
+                  <th className="col-altno grp-start">Alt. Part No.</th>
                   <th className="col-alt">Alt. Availability</th>
                 </tr>
               </thead>
               <tbody>
-                {results.map((row, i) => {
+                {sorted.map((row, i) => {
                   if (!row.found) return (
                     <tr key={i} className="row-notfound">
                       <td className="td-idx">{i + 1}</td>
                       <td className="td-part">{row.part_number}</td>
-                      <td colSpan={10} className="td-notfound">Not found in database</td>
+                      <td colSpan={11} className="td-notfound">Not found in database</td>
                     </tr>
                   )
                   const dib = stockVal(row.dibrugarh)
                   const jor = stockVal(row.jorhat)
                   const dim = stockVal(row.dimapur)
+                  const irs = stockVal(row.dimapur_irs)
+                  const altParts = row.alternate_parts && row.alternate_parts !== "-"
+                    ? row.alternate_parts.replace(/;/g, ", ")
+                    : ""
                   return (
                     <tr key={i}>
                       <td className="td-idx">{i + 1}</td>
                       <td className="td-part">{row.part_number}</td>
                       <td className="td-desc">{row.description || "—"}</td>
-                      <td className="td-mrp">
-                        {row.mrp ? `Rs. ${Number(row.mrp).toLocaleString("en-IN", { minimumFractionDigits: 2 })}` : "—"}
-                      </td>
-                      <td className={`td-stock ${dib.cls}`}>{dib.text}</td>
-                      <td className={`td-stock ${jor.cls}`}>{jor.text}</td>
-                      <td className={`td-stock ${dim.cls}`}>{dim.text}</td>
-                      <td className="td-stock">{stockVal(row.dimapur_irs).cls === 'na' ? '—' : stockVal(row.dimapur_irs).text}</td>
+                      <td className="td-mrp">{formatMrp(row.mrp)}</td>
+                      <td className={`td-stock grp-start ${dib.cls}`}>{dib.text}</td>
                       <td className="td-transit">{transitVal(row.tr_dibrugarh)}</td>
+                      <td className={`td-stock grp-start ${jor.cls}`}>{jor.text}</td>
                       <td className="td-transit">{transitVal(row.tr_jorhat)}</td>
+                      <td className={`td-stock grp-start ${dim.cls}`}>{dim.text}</td>
                       <td className="td-transit">{transitVal(row.tr_dimapur)}</td>
+                      <td className={`td-stock grp-start ${irs.cls}`}>{irs.text}</td>
+                      <td className="td-altno grp-start">{altParts}</td>
                       <td className="td-alt">{row.alt_availability || ""}</td>
                     </tr>
                   )

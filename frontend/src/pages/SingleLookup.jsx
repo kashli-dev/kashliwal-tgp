@@ -76,7 +76,7 @@ export default function SingleLookup() {
 
           <div className="result-meta">
             <span className="result-mrp">
-              Rs.&nbsp;{Number(result.mrp).toLocaleString("en-IN", {minimumFractionDigits:2})}
+              Rs.&nbsp;{Number(result.mrp).toLocaleString("en-IN", {maximumFractionDigits:0})}
             </span>
             {result.discount_code && result.discount_code !== "--" && (
               <span className="result-dc">{result.discount_code}</span>
@@ -107,7 +107,29 @@ export default function SingleLookup() {
           {result.alt_availability && (
             <div className="alt-note">
               <div className="alt-note-label">Alternate Available</div>
-              <div className="alt-note-text">{result.alt_availability}</div>
+              <div className="alt-alts">
+                {result.alt_availability.split("|||").map((entry, i) => {
+                  const parts = entry.split("|")
+                  const partNum = parts[0]
+                  const locs = parts.slice(1).map(l => {
+                    const [wh, qty] = l.split(":")
+                    return { wh, qty }
+                  })
+                  return (
+                    <div key={i} className="alt-block">
+                      <span className="alt-part-num">{partNum}</span>
+                      <div className="alt-wh-row">
+                        {locs.map((loc, j) => (
+                          <div key={j} className="alt-wh-tag">
+                            <span className="alt-wh-name">{loc.wh}</span>
+                            <span className="alt-wh-qty">{Number(loc.qty).toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
         </div>
