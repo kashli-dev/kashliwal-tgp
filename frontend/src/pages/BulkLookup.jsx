@@ -32,7 +32,7 @@ function exportToExcel(results) {
       "Part Number": row.part_number,
       "Description": "Not found",
       "MRP (Rs.)": "",
-      "DIB": "", "JRH": "", "DMU": "",
+      "DIB": "", "JRH": "", "DMU": "", "DMU IRS": "",
       "DIB Transit": "", "JRH Transit": "", "DMU Transit": "",
       "Alternate Part No.": "",
       "Alt. Availability": "",
@@ -48,6 +48,7 @@ function exportToExcel(results) {
       "DIB":                stockNum(row.dibrugarh),
       "JRH":                stockNum(row.jorhat),
       "DMU":                stockNum(row.dimapur),
+      "DMU IRS":            stockNum(row.dimapur_irs),
       "DIB Transit":        trNum(row.tr_dibrugarh),
       "JRH Transit":        trNum(row.tr_jorhat),
       "DMU Transit":        trNum(row.tr_dimapur),
@@ -71,6 +72,7 @@ function exportToExcel(results) {
     { wch: 8  },  // DIB
     { wch: 8  },  // JRH
     { wch: 8  },  // DMU
+    { wch: 8  },  // DMU IRS
     { wch: 12 },  // DIB Transit
     { wch: 12 },  // JRH Transit
     { wch: 12 },  // DMU Transit
@@ -171,6 +173,7 @@ export default function BulkLookup() {
                   <th className="col-stock">DIB</th>
                   <th className="col-stock">JRH</th>
                   <th className="col-stock">DMU</th>
+                  <th className="col-irs">DMU IRS</th>
                   <th className="col-transit transit">DIB Transit</th>
                   <th className="col-transit transit">JRH Transit</th>
                   <th className="col-transit transit">DMU Transit</th>
@@ -183,7 +186,7 @@ export default function BulkLookup() {
                     <tr key={i} className="row-notfound">
                       <td className="td-idx">{i + 1}</td>
                       <td className="td-part">{row.part_number}</td>
-                      <td colSpan={9} className="td-notfound">Not found in database</td>
+                      <td colSpan={10} className="td-notfound">Not found in database</td>
                     </tr>
                   )
                   const dib = stockVal(row.dibrugarh)
@@ -200,6 +203,7 @@ export default function BulkLookup() {
                       <td className={`td-stock ${dib.cls}`}>{dib.text}</td>
                       <td className={`td-stock ${jor.cls}`}>{jor.text}</td>
                       <td className={`td-stock ${dim.cls}`}>{dim.text}</td>
+                      <td className="td-stock">{stockVal(row.dimapur_irs).cls === 'na' ? '—' : stockVal(row.dimapur_irs).text}</td>
                       <td className="td-transit">{transitVal(row.tr_dibrugarh)}</td>
                       <td className="td-transit">{transitVal(row.tr_jorhat)}</td>
                       <td className="td-transit">{transitVal(row.tr_dimapur)}</td>

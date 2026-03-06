@@ -20,7 +20,11 @@ CREATE TABLE IF NOT EXISTS tgp_parts (
     jor_last_received       TEXT,
     jor_last_issue          TEXT,
     dim_last_received       TEXT,
-    dim_last_issue          TEXT
+    dim_last_issue          TEXT,
+    dib_bins                TEXT,
+    jor_bins                TEXT,
+    dim_bins                TEXT,
+    irs_bins                TEXT
 );
 
 CREATE TABLE IF NOT EXISTS tgp_meta (

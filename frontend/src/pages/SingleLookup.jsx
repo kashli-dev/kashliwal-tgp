@@ -36,7 +36,7 @@ export default function SingleLookup() {
   }
 
   const total = result?.found
-    ? ["dibrugarh","jorhat","dimapur"].reduce((sum, loc) => {
+    ? ["dibrugarh","jorhat","dimapur","dimapur_irs"].reduce((sum, loc) => {
         const v = result[loc]
         return sum + (v && v !== "-" && v !== "Out of Stock" ? Number(v) : 0)
       }, 0)
@@ -91,17 +91,16 @@ export default function SingleLookup() {
 
           <div className="stock-label">Stock Availability</div>
           <div className="stock-rows">
-            <StockRow label="DIB" stock={result.dibrugarh} transit={result.tr_dibrugarh} />
-            <StockRow label="JRH" stock={result.jorhat}    transit={result.tr_jorhat} />
-            <StockRow label="DMU" stock={result.dimapur}   transit={result.tr_dimapur} />
-            {result.dimapur_irs && result.dimapur_irs !== "-" &&
-             result.dimapur_irs !== "Out of Stock" && Number(result.dimapur_irs) > 0 && (
-              <StockRow label="DMU IRS" stock={result.dimapur_irs} transit={null} />
+            <StockRow label="DIB" stock={result.dibrugarh} transit={result.tr_dibrugarh} bins={result.dib_bins ? result.dib_bins.split(";") : []} />
+            <StockRow label="JRH" stock={result.jorhat}    transit={result.tr_jorhat}    bins={result.jor_bins ? result.jor_bins.split(";") : []} />
+            <StockRow label="DMU" stock={result.dimapur}   transit={result.tr_dimapur}   bins={result.dim_bins ? result.dim_bins.split(";") : []} />
+            {result.dimapur_irs && result.dimapur_irs !== "-" && (
+              <StockRow label="DMU IRS" stock={result.dimapur_irs} transit={null} bins={result.irs_bins ? result.irs_bins.split(";") : []} />
             )}
           </div>
 
           <div className="stock-total">
-            <span>Total (DIB + JRH + DMU)</span>
+            <span>Total</span>
             <span className="stock-total-val">{total.toLocaleString()}</span>
           </div>
 

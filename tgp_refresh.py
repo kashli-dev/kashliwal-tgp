@@ -47,6 +47,11 @@ def log(msg): print(f"  {msg}")
 def read_inv(path):
     df = pd.read_csv(path, encoding='utf-16', sep='\t', quotechar='"', dtype=str)
     df['Part #'] = df['Part #'].apply(lambda s: str(s).strip().strip('"').strip())
+    # Only include rows that are On Hand and Good
+    if 'Availability' in df.columns:
+        df = df[df['Availability'].str.strip() == 'On Hand']
+    if 'Status' in df.columns:
+        df = df[df['Status'].str.strip() == 'Good']
     return df
 
 def read_transit(path):
@@ -169,6 +174,29 @@ def main():
     iss_jor  = date_map(jor,     'Last Issue Date')
     iss_dim  = date_map(dim_reg, 'Last Issue Date')
 
+    def bins_map(df):
+        """Returns dict of part# -> semicolon-separated unique bin locations"""
+        d = {}
+        for _, r in df.iterrows():
+            p = r['Part #']
+            locs = []
+            for col in ['Location 1', 'Location 2', 'Location 3']:
+                v = str(r.get(col, '') or '').strip()
+                if v and v != 'nan':
+                    locs.append(v)
+            if locs:
+                existing = d.get(p, [])
+                for loc in locs:
+                    if loc not in existing:
+                        existing.append(loc)
+                d[p] = existing
+        return {k: ';'.join(v) for k, v in d.items()}
+
+    bins_dib = bins_map(dib)
+    bins_jor = bins_map(jor)
+    bins_dim = bins_map(dim_reg)
+    bins_irs = bins_map(dim_irs)
+
     parts_in_dib = set(dib['Part #'])
     parts_in_jor = set(jor['Part #'])
     parts_in_dim = set(dim_reg['Part #'])
@@ -227,6 +255,10 @@ def main():
             iss_jor.get(p, ''),
             recv_dim.get(p, ''),
             iss_dim.get(p, ''),
+            bins_dib.get(p, ''),
+            bins_jor.get(p, ''),
+            bins_dim.get(p, ''),
+            bins_irs.get(p, ''),
         ))
 
     # ── Push to database
@@ -249,7 +281,8 @@ def main():
             tr_dibrugarh, tr_jorhat, tr_dimapur,
             dib_last_received, dib_last_issue,
             jor_last_received, jor_last_issue,
-            dim_last_received, dim_last_issue
+            dim_last_received, dim_last_issue,
+            dib_bins, jor_bins, dim_bins, irs_bins
         ) VALUES %s
     """, rows, page_size=500)
 
