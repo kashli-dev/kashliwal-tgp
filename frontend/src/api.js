@@ -21,3 +21,9 @@ export async function fetchMeta() {
   if (!res.ok) return null
   return res.json()
 }
+
+export async function fetchSearch(q) {
+  const res = await fetch(`${BASE}/search?q=${encodeURIComponent(q.trim())}`)
+  if (!res.ok) return []
+  return res.json()
+}

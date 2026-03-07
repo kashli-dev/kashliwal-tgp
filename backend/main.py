@@ -114,21 +114,19 @@ def bulk_lookup(part_numbers: List[str]):
 
 @app.get("/search")
 def search(q: str = Query(..., min_length=2)):
-    """Search parts by number prefix or description keyword"""
+    """Search parts by part number (contains match) — used for autocomplete"""
     try:
         conn = get_conn()
         cur = conn.cursor()
         cur.execute("""
-            SELECT part_number, description, mrp,
-                   dibrugarh, jorhat, dimapur,
-                   tr_dibrugarh, tr_jorhat, tr_dimapur,
-                dib_last_received, dib_last_issue,
-                jor_last_received, jor_last_issue,
-                dim_last_received, dim_last_issue
+            SELECT part_number, description
             FROM tgp_parts
-            WHERE part_number ILIKE %s OR description ILIKE %s
-            LIMIT 20
-        """, (f"{q}%", f"%{q}%"))
+            WHERE part_number ILIKE %s
+            ORDER BY
+                CASE WHEN part_number ILIKE %s THEN 0 ELSE 1 END,
+                part_number
+            LIMIT 10
+        """, (f"%{normalize(q)}%", f"{normalize(q)}%"))
         rows = [dict(r) for r in cur.fetchall()]
         conn.close()
         return rows

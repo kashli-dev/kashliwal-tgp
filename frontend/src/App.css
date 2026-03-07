@@ -564,3 +564,54 @@ html, body, #root {
 @media (max-width: 600px) {
   .dates-grid { grid-template-columns: 1fr; }
 }
+
+/* ── AUTOCOMPLETE DROPDOWN ── */
+.ac-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0; right: 0;
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  border-top: none;
+  z-index: 200;
+  overflow: hidden;
+}
+.ac-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ac-item:last-of-type { border-bottom: none; }
+.ac-item:active { background: var(--blue-dim); }
+.ac-part {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--white80);
+  letter-spacing: 0.04em;
+}
+.ac-mark {
+  background: none;
+  color: var(--blue);
+  font-weight: 600;
+}
+.ac-desc {
+  font-size: 11px;
+  color: var(--white25);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ac-hint {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--white25);
+  padding: 6px 16px 8px;
+  background: var(--panel2);
+  border-top: 1px solid var(--border);
+}

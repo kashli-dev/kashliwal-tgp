@@ -1,19 +1,37 @@
-import { useState, useCallback, useRef } from "react"
-import { fetchPart } from "../api"
+import { useState, useCallback, useRef, useEffect } from "react"
+import { fetchPart, fetchSearch } from "../api"
 import StockRow from "../components/StockRow"
 import LastUpdated from "../components/LastUpdated"
 
 export default function SingleLookup() {
-  const [query, setQuery]   = useState("")
-  const [result, setResult] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError]   = useState(null)
-  const timerRef = useRef(null)
+  const [query, setQuery]         = useState("")
+  const [result, setResult]       = useState(null)
+  const [loading, setLoading]     = useState(false)
+  const [error, setError]         = useState(null)
+  const [suggestions, setSuggestions] = useState([])
+  const [showDrop, setShowDrop]   = useState(false)
+  const timerRef  = useRef(null)
+  const wrapRef   = useRef(null)
+
+  // Close dropdown when tapping/clicking outside
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        setShowDrop(false)
+      }
+    }
+    document.addEventListener("mousedown", handler)
+    document.addEventListener("touchstart", handler)
+    return () => {
+      document.removeEventListener("mousedown", handler)
+      document.removeEventListener("touchstart", handler)
+    }
+  }, [])
 
   const lookup = useCallback(async (val) => {
     const q = val.trim()
     if (!q) { setResult(null); setError(null); return }
-    setLoading(true); setError(null)
+    setLoading(true); setError(null); setShowDrop(false)
     try {
       const data = await fetchPart(q)
       setResult(data)
@@ -24,15 +42,56 @@ export default function SingleLookup() {
     }
   }, [])
 
+  const fetchSuggestions = useCallback(async (val) => {
+    const q = val.trim()
+    if (q.length < 2) { setSuggestions([]); setShowDrop(false); return }
+    try {
+      const data = await fetchSearch(q)
+      setSuggestions(data || [])
+      setShowDrop((data || []).length > 0)
+    } catch {
+      setSuggestions([]); setShowDrop(false)
+    }
+  }, [])
+
   const handleChange = (e) => {
     const val = e.target.value
     setQuery(val)
     clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => lookup(val), 400)
+    timerRef.current = setTimeout(() => fetchSuggestions(val), 300)
   }
 
   const handleKey = (e) => {
-    if (e.key === "Enter") { clearTimeout(timerRef.current); lookup(query) }
+    if (e.key === "Enter") {
+      clearTimeout(timerRef.current)
+      setShowDrop(false)
+      lookup(query)
+    }
+    if (e.key === "Escape") {
+      setShowDrop(false)
+    }
+  }
+
+  const handleSelect = (partNumber) => {
+    setQuery(partNumber)
+    setSuggestions([])
+    setShowDrop(false)
+    clearTimeout(timerRef.current)
+    lookup(partNumber)
+  }
+
+  // Highlight the matched portion in the part number
+  const highlight = (text, q) => {
+    if (!q) return text
+    const idx = text.toUpperCase().indexOf(q.trim().toUpperCase())
+    if (idx === -1) return text
+    return (
+      <>
+        {text.slice(0, idx)}
+        <mark className="ac-mark">{text.slice(idx, idx + q.trim().length)}</mark>
+        {text.slice(idx + q.trim().length)}
+      </>
+    )
   }
 
   const total = result?.found
@@ -44,7 +103,7 @@ export default function SingleLookup() {
 
   return (
     <div>
-      <div className="search-wrap">
+      <div className="search-wrap" ref={wrapRef}>
         <span className="search-icon">⌕</span>
         <input
           className="search-input"
@@ -54,8 +113,28 @@ export default function SingleLookup() {
           onKeyDown={handleKey}
           autoFocus
           spellCheck={false}
+          autoComplete="off"
         />
         <span className="search-label">Part No.</span>
+
+        {showDrop && suggestions.length > 0 && (
+          <div className="ac-dropdown">
+            {suggestions.map((s, i) => (
+              <div
+                key={i}
+                className="ac-item"
+                onMouseDown={(e) => { e.preventDefault(); handleSelect(s.part_number) }}
+                onTouchEnd={(e) => { e.preventDefault(); handleSelect(s.part_number) }}
+              >
+                <span className="ac-part">{highlight(s.part_number, query)}</span>
+                {s.description && (
+                  <span className="ac-desc">{s.description}</span>
+                )}
+              </div>
+            ))}
+            <div className="ac-hint">{suggestions.length} result{suggestions.length !== 1 ? "s" : ""} — tap to select</div>
+          </div>
+        )}
       </div>
 
       {loading && (
