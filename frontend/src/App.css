@@ -164,7 +164,7 @@ html, body, #root {
   letter-spacing: 0.08em;
 }
 .result-alt-parts {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--white50);
 }
 
@@ -471,8 +471,8 @@ html, body, #root {
 .td-desc     { color: var(--white80); font-size: 11px; white-space: normal; }
 .td-notfound { color: var(--white25); font-size: 11px; font-style: italic; white-space: normal; }
 .td-mrp      { font-family: var(--mono); font-size: 11px; color: var(--green); }
-.td-stock    { font-family: var(--mono); font-size: 12px; font-weight: 600; text-align: center; }
-.td-stock.in  { color: var(--white80); }
+.td-stock    { font-family: var(--mono); font-size: 12px; font-weight: 400; text-align: center; }
+.td-stock.in  { color: var(--white); }
 .td-stock.oos { color: var(--red); }
 .td-stock.na  { color: var(--white25); font-size: 14px; }
 .td-transit  { font-family: var(--mono); font-size: 11px; text-align: center; color: var(--blue); }
@@ -601,7 +601,7 @@ html, body, #root {
 }
 .ac-desc {
   font-size: 11px;
-  color: var(--white25);
+  color: var(--white50);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -134,6 +134,11 @@ export default function BulkLookup() {
     ? [...results.filter(r => r.found), ...results.filter(r => !r.found)]
     : null
 
+  // only show DMU IRS column if at least one result has IRS data
+  const showIrs = sorted
+    ? sorted.some(r => r.found && r.dimapur_irs && r.dimapur_irs !== "-")
+    : false
+
   return (
     <div className="bulk-page">
       <div className="bulk-top">
@@ -194,7 +199,7 @@ export default function BulkLookup() {
                   <th className="col-transit transit">JRH Transit</th>
                   <th className="col-stock grp-start">DMU</th>
                   <th className="col-transit transit">DMU Transit</th>
-                  <th className="col-irs grp-start">DMU IRS</th>
+                  {showIrs && <th className="col-irs grp-start">DMU IRS</th>}
                   <th className="col-altno grp-start">Alt. Part No.</th>
                   <th className="col-alt">Alt. Availability</th>
                 </tr>
@@ -205,7 +210,7 @@ export default function BulkLookup() {
                     <tr key={i} className="row-notfound">
                       <td className="td-idx">{i + 1}</td>
                       <td className="td-part">{row.part_number}</td>
-                      <td colSpan={11} className="td-notfound">Not found in database</td>
+                      <td colSpan={showIrs ? 11 : 10} className="td-notfound">Not found in database</td>
                     </tr>
                   )
                   const dib = stockVal(row.dibrugarh)
@@ -227,7 +232,7 @@ export default function BulkLookup() {
                       <td className="td-transit">{transitVal(row.tr_jorhat)}</td>
                       <td className={`td-stock grp-start ${dim.cls}`}>{dim.text}</td>
                       <td className="td-transit">{transitVal(row.tr_dimapur)}</td>
-                      <td className={`td-stock grp-start ${irs.cls}`}>{irs.text}</td>
+                      {showIrs && <td className={`td-stock grp-start ${irs.cls}`}>{irs.text}</td>}
                       <td className="td-altno grp-start">{altParts}</td>
                       <td className="td-alt">{row.alt_availability || ""}</td>
                     </tr>
