@@ -2,7 +2,7 @@ import { useState } from "react"
 import kmplLogo from "../kmpl-logo.png"
 
 // ── Change this to your chosen password ──────────────────────────────────────
-const APP_PASSWORD = "kashliwal2024"
+const APP_PASSWORD = "kashliwal2026"
 // ─────────────────────────────────────────────────────────────────────────────
 
 const STORAGE_KEY = "tgp_auth_date"

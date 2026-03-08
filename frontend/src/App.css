@@ -1,5 +1,12 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
 
+@font-face {
+  font-family: 'Nokia';
+  src: url('./NokiaRegular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -57,7 +64,7 @@ html, body, #root {
 .brand { display: flex; flex-direction: row; align-items: center; gap: 12px; }
 .brand-logo { height: 32px; width: auto; display: block; }
 .brand-text { display: flex; flex-direction: column; gap: 2px; }
-.brand-name { font-size: 14px; font-weight: 600; color: var(--white); letter-spacing: -0.01em; }
+.brand-name { font-size: 14px; font-family: 'Nokia', var(--font); font-weight: normal; color: var(--white); letter-spacing: 0.04em; }
 .brand-sub  { font-size: 10px; color: var(--white25); letter-spacing: 0.04em; }
 
 .nav { display: flex; gap: 4px; }
@@ -503,10 +510,57 @@ html, body, #root {
 /* ── RESPONSIVE ── */
 @media (max-width: 600px) {
   .main { padding: 20px 16px 48px; }
-  .header-inner { padding: 0 16px; }
   .result-mrp { font-size: 20px; }
   .search-input { font-size: 16px; }
   .stock-wh { width: 56px; }
+
+  /* Two-row centered header on mobile */
+  .header-inner {
+    flex-direction: column;
+    height: auto;
+    padding: 12px 16px 0;
+    gap: 0;
+    align-items: center;
+    position: relative;
+  }
+  .brand {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding-bottom: 10px;
+    position: relative;
+  }
+  .brand-logo {
+    height: 36px;
+    position: absolute;
+    left: calc(50% - 90px);
+  }
+  .brand-text {
+    align-items: center;
+    text-align: center;
+  }
+  .brand-name { font-size: 13px; }
+  .brand-sub { text-align: center; font-size: 9px; }
+  .nav {
+    width: 100%;
+    gap: 0;
+    border-top: 1px solid var(--border);
+    margin-top: 2px;
+  }
+  .nav-btn {
+    flex: 1;
+    text-align: center;
+    padding: 10px 0;
+    border: none;
+    border-bottom: 3px solid transparent;
+    border-radius: 0;
+  }
+  .nav-btn.active {
+    border-bottom-color: var(--blue);
+    background: var(--blue-dim);
+  }
 }
 
 .btn-export {
@@ -647,9 +701,9 @@ html, body, #root {
 }
 .login-logo { height: 52px; width: auto; }
 .login-brand-name {
-  font-family: var(--font);
+  font-family: 'Nokia', var(--font);
   font-size: 18px;
-  font-weight: 600;
+  font-weight: normal;
   color: var(--white);
   letter-spacing: 0.02em;
 }
