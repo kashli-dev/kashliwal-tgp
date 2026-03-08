@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: kashliwal-tgp-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: kashliwal-tgp-db
+          property: connectionString
+
+databases:
+  - name: kashliwal-tgp-db
+    plan: free

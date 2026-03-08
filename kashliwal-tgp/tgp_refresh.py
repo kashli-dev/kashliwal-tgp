@@ -14,20 +14,24 @@ FOLDER STRUCTURE EXPECTED:
       dimapur_transit.csv
       dibrugarh_transit.csv
       jorhat_transit.csv
-    output__22_.csv   (price list — any CSV with 'output' or 'price' in name)
+    output__22_.HTML  (price list — must be HTML export; CSV not accepted)
 
 SETUP (one-time):
-  pip install pandas openpyxl psycopg2-binary requests
+  pip install pandas openpyxl psycopg2-binary requests lxml
 """
 
 import pandas as pd
 import re
 import os
 import sys
+import warnings
 import psycopg2
 import psycopg2.extras
 from datetime import datetime
 from pathlib import Path
+
+# Suppress openpyxl 'no default style' warning from Siebel Excel exports
+warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 # Paste your Render PostgreSQL connection string here:
@@ -77,10 +81,15 @@ def parse_mrp(s):
         except: return 0.0
 
 def find_price_list(folder):
-    for f in Path(folder).glob("*.csv"):
-        if any(k in f.name.lower() for k in ['output','price']):
-            return str(f)
-    raise FileNotFoundError(f"No price list CSV found in {folder}")
+    # HTML export only — preserves leading zeros; CSV is not accepted
+    for ext in ['*.htm', '*.html', '*.HTM', '*.HTML']:
+        for f in Path(folder).glob(ext):
+            if any(k in f.name.lower() for k in ['output','price']):
+                return str(f)
+    raise FileNotFoundError(
+        f"No HTML price list found in {folder}\n"
+        f"   Export the price list as HTML from Siebel (not CSV)."
+    )
 
 
 def main():
@@ -107,9 +116,9 @@ def main():
     # ── Load price list
     log("Loading price list...")
     pl_path = find_price_list(EXPORT_FOLDER)
-    with open(pl_path,'rb') as f: enc_raw = f.read(4)
-    enc = 'utf-16' if enc_raw[:2]==b'\xff\xfe' else 'latin1'
-    pl = pd.read_csv(pl_path, encoding=enc, sep='\t', dtype=str)
+    log(f"  (HTML: {Path(pl_path).name})")
+    pl = pd.read_html(pl_path, encoding='utf-16', flavor='lxml')[0]
+    pl.columns = pl.columns.str.strip()
     pl = pl[pl['UMRP'].notna() & pl['UMRP'].str.contains('Rs', na=False)].copy()
     pl['Part #'] = pl['Part #'].apply(lambda s: str(s).strip().strip('"').strip())
     pl['MRP'] = pl['UMRP'].apply(parse_mrp)
@@ -121,13 +130,40 @@ def main():
     alt_resp = requests.get(alt_url, timeout=30)
     alt_resp.raise_for_status()
     alt_df = pd.read_excel(io.BytesIO(alt_resp.content), dtype=str)
-    alt_map = {}
+    # Build raw pairs first
+    raw_pairs = []
     for _, row in alt_df.iterrows():
         if pd.notna(row.iloc[0]) and pd.notna(row.iloc[1]):
             a, b = str(row.iloc[0]).strip(), str(row.iloc[1]).strip()
-            alt_map.setdefault(a,[]).append(b)
-            alt_map.setdefault(b,[]).append(a)
-    for k in alt_map: alt_map[k] = list(dict.fromkeys(alt_map[k]))
+            raw_pairs.append((a, b))
+
+    # Union-Find to group all parts that are alternates of each other
+    parent = {}
+    def find(x):
+        parent.setdefault(x, x)
+        if parent[x] != x:
+            parent[x] = find(parent[x])
+        return parent[x]
+    def union(x, y):
+        parent[find(x)] = find(y)
+
+    for a, b in raw_pairs:
+        union(a, b)
+
+    # Group all parts by their root
+    groups = {}
+    for x in parent:
+        root = find(x)
+        groups.setdefault(root, set()).add(x)
+
+    # Build fully cross-linked alt_map — every member lists all others in its group
+    # Sorted alphabetically so alternate_parts and alt_availability are in consistent order
+    alt_map = {}
+    for group in groups.values():
+        for part in group:
+            others = sorted(p for p in group if p != part)
+            if others:
+                alt_map[part] = others
 
     # ── Build maps
     price_map = {}
@@ -216,7 +252,7 @@ def main():
 
     def alt_stock_note(part):
         available = []
-        for alt in alt_map.get(part, []):
+        for alt in sorted(alt_map.get(part, [])):
             locs = []
             q_dib = map_dib.get(alt,0)
             q_jor = map_jor.get(alt,0)
@@ -279,18 +315,25 @@ def main():
     cur.execute("TRUNCATE TABLE tgp_parts")
 
     log("Inserting new data...")
-    psycopg2.extras.execute_values(cur, """
-        INSERT INTO tgp_parts (
-            part_number, description, mrp, discount_code,
-            dibrugarh, jorhat, dimapur, alternate_parts,
-            dimapur_irs, is_irs, alt_availability,
-            tr_dibrugarh, tr_jorhat, tr_dimapur,
-            dib_last_received, dib_last_issue,
-            jor_last_received, jor_last_issue,
-            dim_last_received, dim_last_issue,
-            dib_bins, jor_bins, dim_bins, irs_bins
-        ) VALUES %s
-    """, rows, page_size=500)
+    BATCH = 500
+    total  = len(rows)
+    for i in range(0, total, BATCH):
+        batch = rows[i:i+BATCH]
+        psycopg2.extras.execute_values(cur, """
+            INSERT INTO tgp_parts (
+                part_number, description, mrp, discount_code,
+                dibrugarh, jorhat, dimapur, alternate_parts,
+                dimapur_irs, is_irs, alt_availability,
+                tr_dibrugarh, tr_jorhat, tr_dimapur,
+                dib_last_received, dib_last_issue,
+                jor_last_received, jor_last_issue,
+                dim_last_received, dim_last_issue,
+                dib_bins, jor_bins, dim_bins, irs_bins
+            ) VALUES %s
+        """, batch, page_size=BATCH)
+        done = min(i + BATCH, total)
+        print(f"  Inserted {done:,} / {total:,} parts...", end='\r')
+    print()  # newline after progress line
 
     cur.execute("INSERT INTO tgp_meta DEFAULT VALUES")
     conn.commit()
