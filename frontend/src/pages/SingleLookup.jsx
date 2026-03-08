@@ -152,7 +152,7 @@ export default function SingleLookup() {
 
       {!loading && !error && result && !result.found && (
         <div className="not-found">
-          No part found for <strong style={{color:"var(--white50)"}}>{result.part_number}</strong>
+          Invalid part number: <strong style={{color:"var(--white50)"}}>{result.part_number}</strong>
         </div>
       )}
 

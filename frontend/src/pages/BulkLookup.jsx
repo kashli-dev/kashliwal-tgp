@@ -210,7 +210,7 @@ export default function BulkLookup() {
                     <tr key={i} className="row-notfound">
                       <td className="td-idx">{i + 1}</td>
                       <td className="td-part">{row.part_number}</td>
-                      <td colSpan={showIrs ? 11 : 10} className="td-notfound">Not found in database</td>
+                      <td colSpan={showIrs ? 11 : 10} className="td-notfound">Invalid part number</td>
                     </tr>
                   )
                   const dib = stockVal(row.dibrugarh)

@@ -1,23 +1,23 @@
 """
 tgp_refresh.py  —  Kashliwal Motors Parts Inventory Refresh
 ============================================================
-Reads Siebel CSV exports and pushes data to the Render PostgreSQL database.
-Run this every morning after exporting CSVs from Siebel.
+Reads Siebel exports and pushes data to the PostgreSQL database.
+Run this every morning after exporting files from Siebel.
 
 FOLDER STRUCTURE EXPECTED:
-  C:\TataExports\
-    Inventory\
-      dimapur_inventory.csv
-      dibrugarh_inventory.csv
-      jorhat_inventory.csv
-    In transit\
+  C:/TataExports/
+    Inventory/
+      dimapur_inventory.xlsx   (Excel export — preserves leading zeros)
+      dibrugarh_inventory.xlsx
+      jorhat_inventory.xlsx
+    In transit/
       dimapur_transit.csv
       dibrugarh_transit.csv
       jorhat_transit.csv
     output__22_.csv   (price list — any CSV with 'output' or 'price' in name)
 
 SETUP (one-time):
-  pip install pandas openpyxl psycopg2-binary
+  pip install pandas openpyxl psycopg2-binary requests
 """
 
 import pandas as pd
@@ -36,16 +36,16 @@ DATABASE_URL = "postgresql://user:password@host/dbname"
 # Folder where your Siebel exports live:
 EXPORT_FOLDER = r"C:\TataExports"
 
-# Path to Alternate_Part_Numbers.xlsx (same folder as this script by default):
-SCRIPT_DIR   = Path(__file__).parent
-ALT_FILE     = SCRIPT_DIR / "Alternate_Part_Numbers.xlsx"
+# Google Sheet ID for Alternate Part Numbers:
+ALT_SHEET_ID = "16U-Mxf-rpsDe1VWstOihkO46tkvBOX0HE_nX6lPcL7Y"
 # ──────────────────────────────────────────────────────────────────────────────
 
 
 def log(msg): print(f"  {msg}")
 
 def read_inv(path):
-    df = pd.read_csv(path, encoding='utf-16', sep='\t', quotechar='"', dtype=str)
+    # Excel export preserves leading zeros on part numbers
+    df = pd.read_excel(path, dtype=str)
     df['Part #'] = df['Part #'].apply(lambda s: str(s).strip().strip('"').strip())
     # Only include rows that are On Hand and Good
     if 'Availability' in df.columns:
@@ -92,11 +92,11 @@ def main():
     inv_folder = export / "Inventory"
     tr_folder  = export / "In transit"
 
-    # ── Load inventory CSVs
+    # ── Load inventory Excel files (xlsx preserves leading zeros)
     log("Loading inventory files...")
-    dib = read_inv(inv_folder / "dibrugarh_inventory.csv")
-    dim = read_inv(inv_folder / "dimapur_inventory.csv")
-    jor = read_inv(inv_folder / "jorhat_inventory.csv")
+    dib = read_inv(inv_folder / "dibrugarh_inventory.xlsx")
+    dim = read_inv(inv_folder / "dimapur_inventory.xlsx")
+    jor = read_inv(inv_folder / "jorhat_inventory.xlsx")
 
     # ── Load transit CSVs
     log("Loading transit files...")
@@ -114,14 +114,17 @@ def main():
     pl['Part #'] = pl['Part #'].apply(lambda s: str(s).strip().strip('"').strip())
     pl['MRP'] = pl['UMRP'].apply(parse_mrp)
 
-    # ── Load alternate parts
-    log("Loading alternate parts...")
-    import openpyxl as ox
-    awb = ox.load_workbook(ALT_FILE)
+    # ── Load alternate parts from Google Sheet
+    log("Loading alternate parts from Google Sheet...")
+    import requests, io
+    alt_url = f"https://docs.google.com/spreadsheets/d/{ALT_SHEET_ID}/export?format=xlsx"
+    alt_resp = requests.get(alt_url, timeout=30)
+    alt_resp.raise_for_status()
+    alt_df = pd.read_excel(io.BytesIO(alt_resp.content), dtype=str)
     alt_map = {}
-    for row in awb.active.iter_rows(min_row=2, values_only=True):
-        if row[0] and row[1]:
-            a, b = str(row[0]).strip(), str(row[1]).strip()
+    for _, row in alt_df.iterrows():
+        if pd.notna(row.iloc[0]) and pd.notna(row.iloc[1]):
+            a, b = str(row.iloc[0]).strip(), str(row.iloc[1]).strip()
             alt_map.setdefault(a,[]).append(b)
             alt_map.setdefault(b,[]).append(a)
     for k in alt_map: alt_map[k] = list(dict.fromkeys(alt_map[k]))
