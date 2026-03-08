@@ -34,3 +34,7 @@ CREATE TABLE IF NOT EXISTS tgp_meta (
 
 CREATE INDEX IF NOT EXISTS idx_tgp_parts_number ON tgp_parts (part_number);
 CREATE INDEX IF NOT EXISTS idx_tgp_parts_desc ON tgp_parts USING gin(to_tsvector('english', coalesce(description,'')));
+
+-- Trigram index for fast ILIKE search on part_number (required for 250k+ rows)
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX IF NOT EXISTS idx_tgp_parts_number_trgm ON tgp_parts USING gin(part_number gin_trgm_ops);

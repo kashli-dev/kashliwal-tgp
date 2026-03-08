@@ -226,8 +226,11 @@ def main():
             if locs: available.append(f"{alt}|" + "|".join(locs))
         return '|||'.join(available)
 
+    # Include ALL parts from price list so alternate lookups work even for
+    # parts with no inventory. Inventory-only parts (not in price list) also included.
     all_parts = sorted(set(
-        list(map_dib)+list(map_dim)+list(map_irs)+list(map_jor)
+        list(price_map)
+        +list(map_dib)+list(map_dim)+list(map_irs)+list(map_jor)
         +list(tr_dib)+list(tr_dim)+list(tr_jor)))
 
     log(f"Building {len(all_parts):,} parts...")

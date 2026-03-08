@@ -61,11 +61,18 @@ export default function SingleLookup() {
     timerRef.current = setTimeout(() => fetchSuggestions(val), 300)
   }
 
+  const isWildcard = (val) => val.includes("*")
+
   const handleKey = (e) => {
     if (e.key === "Enter") {
       clearTimeout(timerRef.current)
-      setShowDrop(false)
-      lookup(query)
+      if (isWildcard(query)) {
+        // Wildcard pattern — show suggestions instead of exact lookup
+        fetchSuggestions(query)
+      } else {
+        setShowDrop(false)
+        lookup(query)
+      }
     }
     if (e.key === "Escape") {
       setShowDrop(false)
@@ -80,9 +87,9 @@ export default function SingleLookup() {
     lookup(partNumber)
   }
 
-  // Highlight the matched portion in the part number
+  // Highlight the matched portion in the part number (skipped for wildcard queries)
   const highlight = (text, q) => {
-    if (!q) return text
+    if (!q || isWildcard(q)) return text
     const idx = text.toUpperCase().indexOf(q.trim().toUpperCase())
     if (idx === -1) return text
     return (
