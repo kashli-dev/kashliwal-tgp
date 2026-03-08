@@ -54,7 +54,9 @@ html, body, #root {
   align-items: center;
   justify-content: space-between;
 }
-.brand { display: flex; flex-direction: column; gap: 2px; }
+.brand { display: flex; flex-direction: row; align-items: center; gap: 12px; }
+.brand-logo { height: 32px; width: auto; display: block; }
+.brand-text { display: flex; flex-direction: column; gap: 2px; }
 .brand-name { font-size: 14px; font-weight: 600; color: var(--white); letter-spacing: -0.01em; }
 .brand-sub  { font-size: 10px; color: var(--white25); letter-spacing: 0.04em; }
 
@@ -377,8 +379,8 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding-top: 2px;
-  min-width: 110px;
+  width: 140px;
+  flex-shrink: 0;
 }
 .btn-primary {
   background: var(--blue);

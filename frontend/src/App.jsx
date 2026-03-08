@@ -2,6 +2,7 @@ import { useState } from "react"
 import SingleLookup from "./pages/SingleLookup"
 import BulkLookup from "./pages/BulkLookup"
 import "./App.css"
+import kmplLogo from "./kmpl-logo.png"
 
 export default function App() {
   const [tab, setTab] = useState("single")
@@ -11,8 +12,11 @@ export default function App() {
       <header className="header">
         <div className="header-inner">
           <div className="brand">
-            <span className="brand-name">Kashliwal Motors</span>
-            <span className="brand-sub">Authorised Distributor · Tata Genuine Parts</span>
+            <img src={kmplLogo} alt="Kashliwal Motors" className="brand-logo" />
+            <div className="brand-text">
+              <span className="brand-name">Kashliwal Motors</span>
+              <span className="brand-sub">Authorised Distributor · Tata Genuine Parts</span>
+            </div>
           </div>
           <nav className="nav">
             <button

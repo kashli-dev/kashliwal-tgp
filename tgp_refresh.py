@@ -286,7 +286,6 @@ def main():
             stock_label(p, map_dim, parts_in_dim),
             alts,
             stock_label(p, map_irs, parts_in_irs),
-            'YES' if p in irs_set else 'NO',
             alt_stock_note(p),
             transit_label(p, tr_dib),
             transit_label(p, tr_jor),
@@ -323,7 +322,7 @@ def main():
             INSERT INTO tgp_parts (
                 part_number, description, mrp, discount_code,
                 dibrugarh, jorhat, dimapur, alternate_parts,
-                dimapur_irs, is_irs, alt_availability,
+                dimapur_irs, alt_availability,
                 tr_dibrugarh, tr_jorhat, tr_dimapur,
                 dib_last_received, dib_last_issue,
                 jor_last_received, jor_last_issue,

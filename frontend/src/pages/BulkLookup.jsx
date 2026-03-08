@@ -43,10 +43,12 @@ function exportToExcel(results) {
       "DMU IRS": "",
       "Alternate Part No.": "",
       "Alt. Availability": "",
+      "DIB Bins": "", "JRH Bins": "", "DMU Bins": "",
       "DIB Received": "", "DIB Issue": "",
       "JRH Received": "", "JRH Issue": "",
       "DMU Received": "", "DMU Issue": "",
     }
+    const bins = (v) => v ? v.replace(/;/g, ", ") : ""
     return {
       "#":                  i + 1,
       "Part Number":        row.part_number,
@@ -61,6 +63,9 @@ function exportToExcel(results) {
       "DMU IRS":            stockNum(row.dimapur_irs),
       "Alternate Part No.": row.alternate_parts && row.alternate_parts !== "-" ? row.alternate_parts.replace(/;/g, ",") : "",
       "Alt. Availability":  row.alt_availability || "",
+      "DIB Bins":           bins(row.dib_bins),
+      "JRH Bins":           bins(row.jor_bins),
+      "DMU Bins":           bins(row.dim_bins),
       "DIB Received":       row.dib_last_received || "",
       "DIB Issue":          row.dib_last_issue    || "",
       "JRH Received":       row.jor_last_received || "",
@@ -91,6 +96,9 @@ function exportToExcel(results) {
     { wch: 8  },  // DMU IRS
     { wch: 28 },  // Alternate Part No.
     { wch: 52 },  // Alt. Availability
+    { wch: 24 },  // DIB Bins
+    { wch: 24 },  // JRH Bins
+    { wch: 24 },  // DMU Bins
     { wch: 14 },  // DIB Received
     { wch: 14 },  // DIB Issue
     { wch: 14 },  // JRH Received
