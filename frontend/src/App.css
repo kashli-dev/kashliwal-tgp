@@ -1,10 +1,3 @@
-@font-face {
-  font-family: 'Nokia';
-  src: url('./NokiaRegular.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-}
-
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -64,7 +57,7 @@ html, body, #root {
 .brand { display: flex; flex-direction: row; align-items: center; gap: 12px; }
 .brand-logo { height: 32px; width: auto; display: block; }
 .brand-text { display: flex; flex-direction: column; gap: 2px; }
-.brand-name { font-size: 14px; font-family: 'Nokia', var(--font); font-weight: normal; color: var(--white); letter-spacing: 0.02em; }
+.brand-name { font-size: 14px; font-weight: 600; color: var(--white); letter-spacing: -0.01em; }
 .brand-sub  { font-size: 10px; color: var(--white25); letter-spacing: 0.04em; }
 
 .nav { display: flex; gap: 4px; }
@@ -654,9 +647,9 @@ html, body, #root {
 }
 .login-logo { height: 52px; width: auto; }
 .login-brand-name {
-  font-family: 'Nokia', var(--font);
+  font-family: var(--font);
   font-size: 18px;
-  font-weight: normal;
+  font-weight: 600;
   color: var(--white);
   letter-spacing: 0.02em;
 }
