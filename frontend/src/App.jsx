@@ -1,11 +1,15 @@
 import { useState } from "react"
 import SingleLookup from "./pages/SingleLookup"
 import BulkLookup from "./pages/BulkLookup"
+import Login, { isAuthed } from "./pages/Login"
 import "./App.css"
 import kmplLogo from "./kmpl-logo.png"
 
 export default function App() {
   const [tab, setTab] = useState("single")
+  const [authed, setAuthed] = useState(isAuthed)
+
+  if (!authed) return <Login onSuccess={() => setAuthed(true)} />
 
   return (
     <div className="app">

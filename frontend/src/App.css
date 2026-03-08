@@ -1,3 +1,10 @@
+@font-face {
+  font-family: 'Nokia';
+  src: url('./NokiaRegular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -57,7 +64,7 @@ html, body, #root {
 .brand { display: flex; flex-direction: row; align-items: center; gap: 12px; }
 .brand-logo { height: 32px; width: auto; display: block; }
 .brand-text { display: flex; flex-direction: column; gap: 2px; }
-.brand-name { font-size: 14px; font-weight: 600; color: var(--white); letter-spacing: -0.01em; }
+.brand-name { font-size: 14px; font-family: 'Nokia', var(--font); font-weight: normal; color: var(--white); letter-spacing: 0.02em; }
 .brand-sub  { font-size: 10px; color: var(--white25); letter-spacing: 0.04em; }
 
 .nav { display: flex; gap: 4px; }
@@ -479,7 +486,11 @@ html, body, #root {
 .td-stock.na  { color: var(--white25); font-size: 14px; }
 .td-transit  { font-family: var(--mono); font-size: 11px; text-align: center; color: var(--blue); }
 .td-altno    { font-family: var(--mono); font-size: 10px; color: var(--white50); white-space: normal; }
-.td-alt      { font-size: 10px; color: rgba(255,180,0,0.7); line-height: 1.6; white-space: normal; }
+.td-alt      { font-size: 10px; white-space: normal; }
+.bulk-alt-cell  { display: flex; flex-direction: column; gap: 5px; }
+.bulk-alt-entry { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.bulk-alt-pn    { font-family: var(--mono); font-size: 10px; color: var(--amber); white-space: nowrap; }
+.bulk-alt-tag   { font-family: var(--mono); font-size: 9px; background: var(--blue-dim); color: var(--blue); padding: 1px 5px; border-radius: 2px; white-space: nowrap; }
 
 
 /* ── LOADING ── */
@@ -617,3 +628,100 @@ html, body, #root {
   background: var(--panel2);
   border-top: 1px solid var(--border);
 }
+
+/* ── LOGIN / AUTH ── */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  padding: 24px;
+}
+.login-box {
+  width: 100%;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+.login-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.login-logo { height: 52px; width: auto; }
+.login-brand-name {
+  font-family: 'Nokia', var(--font);
+  font-size: 18px;
+  font-weight: normal;
+  color: var(--white);
+  letter-spacing: 0.02em;
+}
+.login-brand-sub {
+  font-size: 10px;
+  color: var(--white25);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.login-field {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.login-label {
+  font-size: 10px;
+  color: var(--white25);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.login-input {
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--border2);
+  color: var(--white);
+  font-family: var(--mono);
+  font-size: 15px;
+  padding: 11px 14px;
+  outline: none;
+  letter-spacing: 0.2em;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.login-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-ring); }
+.login-input.error { border-color: var(--red); box-shadow: 0 0 0 3px rgba(254,77,77,0.2); }
+.login-input::placeholder { color: var(--white25); letter-spacing: 0.08em; font-size: 13px; }
+.login-error {
+  font-size: 11px;
+  color: var(--red);
+  padding: 2px 0;
+}
+.login-btn {
+  width: 100%;
+  background: var(--blue);
+  border: none;
+  color: #fff;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 12px;
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  transition: opacity 0.15s;
+}
+.login-btn:hover { opacity: 0.85; }
+.login-hint {
+  font-size: 10px;
+  color: var(--white25);
+  text-align: center;
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-8px); }
+  40%       { transform: translateX(8px); }
+  60%       { transform: translateX(-5px); }
+  80%       { transform: translateX(5px); }
+}
+.login-box.shake { animation: shake 0.45s ease; }

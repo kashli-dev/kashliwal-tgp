@@ -6,7 +6,9 @@ import * as XLSX from "xlsx"
 function stockVal(val) {
   if (!val || val === "-" || val === "--") return { text: "—", cls: "na" }
   if (val === "Out of Stock" || val === "0") return { text: "0", cls: "oos" }
-  return { text: Number(val).toLocaleString(), cls: "in" }
+  const n = Number(val)
+  if (n <= 0) return { text: "0", cls: "oos" }
+  return { text: n.toLocaleString(), cls: "in" }
 }
 
 function transitVal(val) {
@@ -24,7 +26,8 @@ function exportToExcel(results) {
   const stockNum = (v) => {
     if (!v || v === "-" || v === "--") return ""
     if (v === "Out of Stock" || v === "0") return 0
-    return Number(v)
+    const n = Number(v)
+    return n <= 0 ? 0 : n
   }
   const trNum = (v) => {
     if (!v || v === "-" || v === "--") return ""
@@ -62,7 +65,9 @@ function exportToExcel(results) {
       "DMU Transit":        trNum(row.tr_dimapur),
       "DMU IRS":            stockNum(row.dimapur_irs),
       "Alternate Part No.": row.alternate_parts && row.alternate_parts !== "-" ? row.alternate_parts.replace(/;/g, ",") : "",
-      "Alt. Availability":  row.alt_availability || "",
+      "Alt. Availability":  row.alt_availability
+        ? row.alt_availability.split("|||").map(e => e.split("|")[0]).join(", ")
+        : "",
       "DIB Bins":           bins(row.dib_bins),
       "JRH Bins":           bins(row.jor_bins),
       "DMU Bins":           bins(row.dim_bins),
@@ -242,7 +247,26 @@ export default function BulkLookup() {
                       <td className="td-transit">{transitVal(row.tr_dimapur)}</td>
                       {showIrs && <td className={`td-stock grp-start ${irs.cls}`}>{irs.text}</td>}
                       <td className="td-altno grp-start">{altParts}</td>
-                      <td className="td-alt">{row.alt_availability || ""}</td>
+                      <td className="td-alt">
+                        {row.alt_availability
+                          ? <div className="bulk-alt-cell">
+                              {row.alt_availability.split("|||").map((entry, i) => {
+                                const parts = entry.split("|")
+                                const pn = parts[0]
+                                const locs = parts.slice(1)
+                                return (
+                                  <div key={i} className="bulk-alt-entry">
+                                    <span className="bulk-alt-pn">{pn}</span>
+                                    {locs.map((l, j) => {
+                                      const [wh, qty] = l.split(":")
+                                      return <span key={j} className="bulk-alt-tag">{wh}:{Number(qty).toLocaleString()}</span>
+                                    })}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          : ""}
+                      </td>
                     </tr>
                   )
                 })}

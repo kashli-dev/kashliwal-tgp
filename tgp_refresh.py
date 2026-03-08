@@ -67,7 +67,7 @@ def read_transit(path):
     return df.groupby('Part #')['Recd Qty'].sum().to_dict()
 
 def clean_qty(s):
-    try: return int(float(str(s).strip().replace(',','')))
+    try: return max(0, int(float(str(s).strip().replace(',',''))))
     except: return 0
 
 def parse_mrp(s):
@@ -214,14 +214,15 @@ def main():
     iss_dim  = date_map(dim_reg, 'Last Issue Date')
 
     def bins_map(df):
-        """Returns dict of part# -> semicolon-separated unique bin locations"""
+        """Returns dict of part# -> semicolon-separated unique bin locations.
+        Skips any location value containing ':' (used as a hack for alternate part notes)."""
         d = {}
         for _, r in df.iterrows():
             p = r['Part #']
             locs = []
             for col in ['Location 1', 'Location 2', 'Location 3']:
                 v = str(r.get(col, '') or '').strip()
-                if v and v != 'nan':
+                if v and v != 'nan' and ':' not in v:
                     locs.append(v)
             if locs:
                 existing = d.get(p, [])

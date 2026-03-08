@@ -11,11 +11,12 @@ function isValidBin(val) {
 export default function StockRow({ label, stock, transit, bins }) {
   const [open, setOpen] = useState(false)
 
-  const isOOS = stock === "Out of Stock" || stock === "0"
+  const stockNum = (!stock || stock === "-" || stock === "Out of Stock") ? null : Number(stock)
   const isNA  = stock === "-" || stock === null
+  const isOOS = !isNA && (stock === "Out of Stock" || stock === "0" || (stockNum !== null && stockNum <= 0))
 
   let qtyClass = "in-stock"
-  let qtyText  = (!isOOS && !isNA) ? Number(stock).toLocaleString() : ""
+  let qtyText  = (!isOOS && !isNA) ? stockNum.toLocaleString() : ""
   if (isOOS) { qtyClass = "out-stock"; qtyText = "0" }
   if (isNA)  { qtyClass = "not-ord";   qtyText = "—" }
 

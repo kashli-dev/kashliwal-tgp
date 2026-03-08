@@ -1,6 +1,6 @@
 {
-  "name": "Kashliwal Motors \u2014 TGP Parts",
-  "short_name": "TGP Parts",
+  "name": "Kashliwal TGP",
+  "short_name": "Kashliwal TGP",
   "description": "Tata Genuine Parts inventory lookup",
   "start_url": "/",
   "display": "standalone",
