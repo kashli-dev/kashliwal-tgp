@@ -60,7 +60,8 @@ def get_part(part_number: str):
                 dib_last_received, dib_last_issue,
                 jor_last_received, jor_last_issue,
                 dim_last_received, dim_last_issue,
-                dib_bins, jor_bins, dim_bins, irs_bins
+                dib_bins, jor_bins, dim_bins, irs_bins,
+                is_nls
             FROM tgp_parts
             WHERE part_number = %s
         """, (normalize(part_number),))
@@ -95,7 +96,8 @@ def bulk_lookup(part_numbers: List[str]):
                 dib_last_received, dib_last_issue,
                 jor_last_received, jor_last_issue,
                 dim_last_received, dim_last_issue,
-                dib_bins, jor_bins, dim_bins, irs_bins
+                dib_bins, jor_bins, dim_bins, irs_bins,
+                is_nls
             FROM tgp_parts
             WHERE part_number = ANY(%s)
         """, (normalized,))

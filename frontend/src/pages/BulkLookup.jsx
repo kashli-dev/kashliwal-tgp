@@ -22,6 +22,13 @@ function formatMrp(mrp) {
   return `Rs. ${Number(mrp).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
 }
 
+function fmtDate(s) {
+  if (!s) return ""
+  const parts = s.split("-")
+  if (parts.length === 3 && parts[0].length === 4) return `${parts[2]}-${parts[1]}-${parts[0]}`
+  return s
+}
+
 function exportToExcel(results) {
   const stockNum = (v) => {
     if (!v || v === "-" || v === "--") return ""
@@ -66,17 +73,18 @@ function exportToExcel(results) {
       "DMU IRS":            stockNum(row.dimapur_irs),
       "Alternate Part No.": row.alternate_parts && row.alternate_parts !== "-" ? row.alternate_parts.replace(/;/g, ",") : "",
       "Alt. Availability":  row.alt_availability
-        ? row.alt_availability.split("|||").map(e => e.split("|")[0]).join(", ")
+        ? row.alt_availability.split("|||").map(e => { const p = e.split("|")[0]; return p.startsWith("NLS:") ? p.slice(4)+" (NLS)" : p }).join(", ")
         : "",
       "DIB Bins":           bins(row.dib_bins),
       "JRH Bins":           bins(row.jor_bins),
       "DMU Bins":           bins(row.dim_bins),
-      "DIB Received":       row.dib_last_received || "",
-      "DIB Issue":          row.dib_last_issue    || "",
-      "JRH Received":       row.jor_last_received || "",
-      "JRH Issue":          row.jor_last_issue    || "",
-      "DMU Received":       row.dim_last_received || "",
-      "DMU Issue":          row.dim_last_issue    || "",
+      "DIB Received":       fmtDate(row.dib_last_received),
+      "DIB Issue":          fmtDate(row.dib_last_issue),
+      "JRH Received":       fmtDate(row.jor_last_received),
+      "JRH Issue":          fmtDate(row.jor_last_issue),
+      "DMU Received":       fmtDate(row.dim_last_received),
+      "DMU Issue":          fmtDate(row.dim_last_issue),
+      "NLS":                row.is_nls ? "Yes" : "",
     }
   }
 
@@ -110,7 +118,10 @@ function exportToExcel(results) {
     { wch: 14 },  // JRH Issue
     { wch: 14 },  // DMU Received
     { wch: 14 },  // DMU Issue
+    { wch: 6  },  // NLS
   ]
+
+  ws["!freeze"] = { xSplit: 2, ySplit: 1, topLeftCell: "C2", activePane: "bottomRight" }
 
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, "Bulk Lookup")
@@ -222,7 +233,10 @@ export default function BulkLookup() {
                   if (!row.found) return (
                     <tr key={i} className="row-notfound">
                       <td className="td-idx">{i + 1}</td>
-                      <td className="td-part">{row.part_number}</td>
+                      <td className="td-part">
+                        {row.part_number}
+                        {row.is_nls && <span className="nls-badge-sm">NLS</span>}
+                      </td>
                       <td colSpan={showIrs ? 11 : 10} className="td-notfound">Invalid part number</td>
                     </tr>
                   )
@@ -252,15 +266,29 @@ export default function BulkLookup() {
                           ? <div className="bulk-alt-cell">
                               {row.alt_availability.split("|||").map((entry, i) => {
                                 const parts = entry.split("|")
-                                const pn = parts[0]
-                                const locs = parts.slice(1)
+                                const rawPn = parts[0]
+                                const isNls = rawPn.startsWith("NLS:")
+                                const pn = isNls ? rawPn.slice(4) : rawPn
+                                const rawLocs = parts.slice(1)
                                 return (
                                   <div key={i} className="bulk-alt-entry">
-                                    <span className="bulk-alt-pn">{pn}</span>
-                                    {locs.map((l, j) => {
-                                      const [wh, qty] = l.split(":")
-                                      return <span key={j} className="bulk-alt-tag">{wh}:{Number(qty).toLocaleString()}</span>
-                                    })}
+                                    {isNls
+                                      ? <>
+                                          <span className="bulk-alt-pn-nls">{pn}</span>
+                                          <span className="bulk-alt-label-nls">(NLS)</span>
+                                          {rawLocs.map((l, j) => {
+                                            const [wh, qty] = l.split(":")
+                                            return <span key={j} className="bulk-alt-tag-nls">{wh}:{Number(qty).toLocaleString()}</span>
+                                          })}
+                                        </>
+                                      : <>
+                                          <span className="bulk-alt-pn">{pn}</span>
+                                          {rawLocs.map((l, j) => {
+                                            const [wh, qty] = l.split(":")
+                                            return <span key={j} className="bulk-alt-tag">{wh}:{Number(qty).toLocaleString()}</span>
+                                          })}
+                                        </>
+                                    }
                                   </div>
                                 )
                               })}

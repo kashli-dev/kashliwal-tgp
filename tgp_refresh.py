@@ -42,6 +42,8 @@ EXPORT_FOLDER = r"C:\TataExports"
 
 # Google Sheet ID for Alternate Part Numbers:
 ALT_SHEET_ID = "16U-Mxf-rpsDe1VWstOihkO46tkvBOX0HE_nX6lPcL7Y"
+# Google Sheet ID for NLS (No Longer Serviced) parts:
+NLS_SHEET_ID = "1FwL6bSLZfHRgoX5FkEPxB_Z9r6DU8Q_nJ3QkdyuM_X4"
 # ──────────────────────────────────────────────────────────────────────────────
 
 
@@ -165,6 +167,16 @@ def main():
             if others:
                 alt_map[part] = others
 
+    # ── Load NLS list from Google Sheet
+    log("Loading NLS list from Google Sheet...")
+    nls_url = f"https://docs.google.com/spreadsheets/d/{NLS_SHEET_ID}/export?format=xlsx"
+    nls_resp = requests.get(nls_url, timeout=30)
+    nls_resp.raise_for_status()
+    nls_df = pd.read_excel(io.BytesIO(nls_resp.content), dtype=str)
+    # Single column, has header — take first column, skip header
+    nls_set = set(str(v).strip() for v in nls_df.iloc[:, 0].dropna() if str(v).strip())
+    log(f"  {len(nls_set):,} NLS parts loaded")
+
     # ── Build maps
     price_map = {}
     for _, r in pl.iterrows():
@@ -254,16 +266,20 @@ def main():
     def alt_stock_note(part):
         available = []
         for alt in sorted(alt_map.get(part, [])):
-            locs = []
             q_dib = map_dib.get(alt,0)
             q_jor = map_jor.get(alt,0)
             q_dim = map_dim.get(alt,0)
             q_irs = map_irs.get(alt,0)
+            locs = []
             if q_dib>0: locs.append(f'DIB:{q_dib}')
             if q_jor>0: locs.append(f'JRH:{q_jor}')
             if q_dim>0: locs.append(f'DMU:{q_dim}')
             if q_irs>0: locs.append(f'DMU IRS:{q_irs}')
-            if locs: available.append(f"{alt}|" + "|".join(locs))
+            # Only show in alt box if the alternate has stock (NLS or not)
+            if not locs:
+                continue
+            prefix = "NLS:" if alt in nls_set else ""
+            available.append(f"{prefix}{alt}|" + "|".join(locs))
         return '|||'.join(available)
 
     # Include ALL parts from price list so alternate lookups work even for
@@ -279,7 +295,21 @@ def main():
     for p in all_parts:
         pi   = price_map.get(p, {})
         desc = pi.get('Desc') or dm_d.get(p) or dib_d.get(p) or jor_d.get(p,'')
-        alts = '; '.join(alt_map.get(p,[])) or '-'
+        # Alt line rule: non-NLS alts always show; NLS alts only if they have stock
+        alt_line_parts = []
+        for alt in sorted(alt_map.get(p, [])):
+            if alt in nls_set:
+                has_stock = any([
+                    map_dib.get(alt, 0) > 0,
+                    map_jor.get(alt, 0) > 0,
+                    map_dim.get(alt, 0) > 0,
+                    map_irs.get(alt, 0) > 0,
+                ])
+                if has_stock:
+                    alt_line_parts.append(alt)
+            else:
+                alt_line_parts.append(alt)
+        alts = '; '.join(alt_line_parts) or '-'
         rows.append((
             str(p), desc, pi.get('MRP', None), pi.get('DC',''),
             stock_label(p, map_dib, parts_in_dib),
@@ -301,6 +331,7 @@ def main():
             bins_jor.get(p, ''),
             bins_dim.get(p, ''),
             bins_irs.get(p, ''),
+            p in nls_set,
         ))
 
     # ── Push to database
@@ -328,7 +359,8 @@ def main():
                 dib_last_received, dib_last_issue,
                 jor_last_received, jor_last_issue,
                 dim_last_received, dim_last_issue,
-                dib_bins, jor_bins, dim_bins, irs_bins
+                dib_bins, jor_bins, dim_bins, irs_bins,
+                is_nls
             ) VALUES %s
         """, batch, page_size=BATCH)
         done = min(i + BATCH, total)

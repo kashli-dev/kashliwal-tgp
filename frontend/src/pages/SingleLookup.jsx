@@ -158,6 +158,17 @@ export default function SingleLookup() {
 
       {!loading && !error && result?.found && (
         <div className="result-card">
+          {result.is_nls && (
+            <div className="nls-banner">
+              <div className="nls-banner-icon">⚠</div>
+              <div className="nls-banner-text">
+                <div className="nls-banner-title">No Longer Serviced</div>
+                {total > 0 && (
+                  <div className="nls-banner-body">This part cannot be reordered from Tata. Liquidate existing warehouse stock before fulfilling from alternates.</div>
+                )}
+              </div>
+            </div>
+          )}
           <div className="result-desc">{result.description || "—"}</div>
 
           <div className="result-meta">
@@ -190,34 +201,61 @@ export default function SingleLookup() {
             <span className="stock-total-val">{total.toLocaleString()}</span>
           </div>
 
-          {result.alt_availability && (
-            <div className="alt-note">
-              <div className="alt-note-label">Alternate Available</div>
-              <div className="alt-alts">
-                {result.alt_availability.split("|||").map((entry, i) => {
-                  const parts = entry.split("|")
-                  const partNum = parts[0]
-                  const locs = parts.slice(1).map(l => {
-                    const [wh, qty] = l.split(":")
-                    return { wh, qty }
-                  })
-                  return (
-                    <div key={i} className="alt-block">
-                      <span className="alt-part-num">{partNum}</span>
-                      <div className="alt-wh-row">
-                        {locs.map((loc, j) => (
-                          <div key={j} className="alt-wh-tag">
-                            <span className="alt-wh-name">{loc.wh}</span>
-                            <span className="alt-wh-qty">{Number(loc.qty).toLocaleString()}</span>
-                          </div>
-                        ))}
+          {result.alt_availability && (() => {
+            const altEntries = result.alt_availability.split("|||").map(entry => {
+              const parts = entry.split("|")
+              const rawLocs = parts.slice(1)
+              return {
+                partNum: parts[0],
+                locs: rawLocs.map(l => { const [wh, qty] = l.split(":"); return { wh, qty } })
+              }
+            })
+            // Check if any alternate is NLS with stock (needs nls_parts set from API — approximated via
+            // checking if the alternate part number is flagged; we pass nls info via alt_availability prefix)
+            // NLS alternates are prefixed with "NLS:" in alt_availability when they have stock
+            const hasNlsAlt = altEntries.some(e => e.partNum.startsWith("NLS:"))
+            const cleanEntries = altEntries.map(e => ({
+              ...e,
+              isNls: e.partNum.startsWith("NLS:"),
+              partNum: e.partNum.startsWith("NLS:") ? e.partNum.slice(4) : e.partNum
+            }))
+            return (
+              <div className="alt-note">
+                {hasNlsAlt && (
+                  <div className="nls-stock-first">
+                    <div className="nls-stock-first-icon">⚠</div>
+                    <div>
+                      <div className="nls-stock-first-title">NLS Stock Available — Use First</div>
+                      <div className="nls-stock-first-body">
+                        {cleanEntries.filter(e => e.isNls).map(e => e.partNum).join(", ")} {cleanEntries.filter(e => e.isNls).length === 1 ? "is" : "are"} No Longer Serviced but {cleanEntries.filter(e => e.isNls).length === 1 ? "has" : "have"} stock available. Fulfil from NLS stock before using this part.
                       </div>
                     </div>
-                  )
-                })}
+                  </div>
+                )}
+                <div className="alt-note-inner">
+                  <div className="alt-note-label">Alternate Available</div>
+                  <div className="alt-alts">
+                    {cleanEntries.map((entry, i) => (
+                      <div key={i} className="alt-block">
+                        <span className="alt-part-num">
+                          {entry.partNum}
+                          {entry.isNls && <span className="nls-badge-sm">NLS</span>}
+                        </span>
+                        <div className="alt-wh-row">
+                          {entry.locs.map((loc, j) => (
+                            <div key={j} className="alt-wh-tag">
+                              <span className="alt-wh-name">{loc.wh}</span>
+                              <span className="alt-wh-qty">{Number(loc.qty).toLocaleString()}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
         </div>
       )}
 
