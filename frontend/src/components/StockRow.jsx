@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { deadAge } from "../utils"
 
 function isValidBin(val) {
   if (!val || val.trim() === "") return false
@@ -8,7 +9,7 @@ function isValidBin(val) {
   return true
 }
 
-export default function StockRow({ label, stock, transit, bins }) {
+export default function StockRow({ label, stock, transit, bins, lastReceived }) {
   const [open, setOpen] = useState(false)
 
   const stockNum = (!stock || stock === "-" || stock === "Out of Stock") ? null : Number(stock)
@@ -26,12 +27,17 @@ export default function StockRow({ label, stock, transit, bins }) {
   const validBins = (bins || []).filter(isValidBin)
   const hasChevron = !isNA && validBins.length > 0
 
+  const age = (!isNA && !isOOS) ? deadAge(lastReceived) : null
+
   const handleClick = () => { if (hasChevron) setOpen(o => !o) }
+
+  // border class: dead if age exists, neutral otherwise
+  const borderClass = age ? "dead-row" : "fresh-row"
 
   return (
     <div className="stock-row-wrap">
       <div
-        className={`stock-row${open ? " expanded" : ""}${!hasChevron ? " no-expand" : ""}`}
+        className={`stock-row ${borderClass}${open ? " expanded" : ""}${!hasChevron ? " no-expand" : ""}`}
         onClick={handleClick}
       >
         <span className="stock-wh">{label}</span>

@@ -66,11 +66,27 @@ def get_part(part_number: str):
             WHERE part_number = %s
         """, (normalize(part_number),))
         row = cur.fetchone()
-        conn.close()
         if not row:
+            conn.close()
             return {"found": False, "part_number": part_number}
         result = dict(row)
         result["found"] = True
+
+        # Fetch alt_details via part_alternates join
+        cur.execute("""
+            SELECT
+                a.part_number, a.description, a.is_nls,
+                a.dibrugarh, a.jorhat, a.dimapur,
+                a.tr_dibrugarh, a.tr_jorhat, a.tr_dimapur,
+                a.dib_last_received, a.jor_last_received, a.dim_last_received
+            FROM part_alternates pa
+            JOIN tgp_parts a ON a.part_number = pa.alt_part_number
+            WHERE pa.part_number = %s
+            ORDER BY a.part_number
+        """, (normalize(part_number),))
+        result["alt_details"] = [dict(r) for r in cur.fetchall()]
+
+        conn.close()
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -102,12 +118,34 @@ def bulk_lookup(part_numbers: List[str]):
             WHERE part_number = ANY(%s)
         """, (normalized,))
         rows = {r["part_number"]: dict(r) for r in cur.fetchall()}
+
+        # Fetch alt_details for all found parts in one query
+        found_parts = list(rows.keys())
+        alt_details_map = {p: [] for p in found_parts}
+        if found_parts:
+            cur.execute("""
+                SELECT
+                    pa.part_number as lookup_pn,
+                    a.part_number, a.description, a.is_nls,
+                    a.dibrugarh, a.jorhat, a.dimapur,
+                    a.tr_dibrugarh, a.tr_jorhat, a.tr_dimapur,
+                    a.dib_last_received, a.jor_last_received, a.dim_last_received
+                FROM part_alternates pa
+                JOIN tgp_parts a ON a.part_number = pa.alt_part_number
+                WHERE pa.part_number = ANY(%s)
+                ORDER BY a.part_number
+            """, (found_parts,))
+            for r in cur.fetchall():
+                d = dict(r)
+                lookup_pn = d.pop("lookup_pn")
+                alt_details_map[lookup_pn].append(d)
+
         conn.close()
         # Return in same order as input, mark not found
         result = []
         for p in normalized:
             if p in rows:
-                result.append({**rows[p], "found": True})
+                result.append({**rows[p], "found": True, "alt_details": alt_details_map.get(p, [])})
             else:
                 result.append({"part_number": p, "found": False})
         return result

@@ -2,6 +2,7 @@ import { useState } from "react"
 import { fetchBulk } from "../api"
 import LastUpdated from "../components/LastUpdated"
 import * as XLSX from "xlsx"
+import { fmtDate } from "../utils"
 
 function stockVal(val) {
   if (!val || val === "-" || val === "--") return { text: "—", cls: "na" }
@@ -20,13 +21,6 @@ function transitVal(val) {
 function formatMrp(mrp) {
   if (!mrp) return "—"
   return `Rs. ${Number(mrp).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
-}
-
-function fmtDate(s) {
-  if (!s) return ""
-  const parts = s.split("-")
-  if (parts.length === 3 && parts[0].length === 4) return `${parts[2]}-${parts[1]}-${parts[0]}`
-  return s
 }
 
 function exportToExcel(results) {

@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react"
 import { fetchPart, fetchSearch } from "../api"
 import StockRow from "../components/StockRow"
 import LastUpdated from "../components/LastUpdated"
+import { deadAge } from "../utils"
 
 export default function SingleLookup() {
   const [query, setQuery]         = useState("")
@@ -156,108 +157,146 @@ export default function SingleLookup() {
         </div>
       )}
 
-      {!loading && !error && result?.found && (
-        <div className="result-card">
-          {result.is_nls && (
-            <div className="nls-banner">
-              <div className="nls-banner-icon">⚠</div>
-              <div className="nls-banner-text">
-                <div className="nls-banner-title">No Longer Serviced</div>
-                {total > 0 && (
-                  <div className="nls-banner-body">This part cannot be reordered from Tata. Liquidate existing warehouse stock before fulfilling from alternates.</div>
-                )}
+      {!loading && !error && result?.found && (() => {
+        // ── Dead stock helpers ──
+        const warehouseDates = [
+          { label: "DIB", stock: result.dibrugarh, date: result.dib_last_received },
+          { label: "JRH", stock: result.jorhat,    date: result.jor_last_received },
+          { label: "DMU", stock: result.dimapur,   date: result.dim_last_received },
+        ]
+        const deadWarehouses = warehouseDates.filter(w => {
+          const hasStock = w.stock && w.stock !== "-" && w.stock !== "Out of Stock" && Number(w.stock) > 0
+          return hasStock && deadAge(w.date) !== null
+        })
+        const isDeadPart = deadWarehouses.length > 0
+
+        // ── Alt entries from structured alt_details ──
+        const altEntries = (result.alt_details || []).map(a => {
+          const locs = [
+            { wh: "DIB", qty: a.dibrugarh, transit: a.tr_dibrugarh },
+            { wh: "JRH", qty: a.jorhat,    transit: a.tr_jorhat    },
+            { wh: "DMU", qty: a.dimapur,   transit: a.tr_dimapur   },
+          ].filter(l => l.qty && l.qty !== "-" && l.qty !== "0" && Number(l.qty) > 0)
+          return {
+            partNum:  a.part_number,
+            isNls:    a.is_nls,
+            age:      deadAge(a.dib_last_received) || deadAge(a.jor_last_received) || deadAge(a.dim_last_received),
+            locs,
+          }
+        }).filter(e => e.locs.length > 0) // only show alts that have stock
+
+        return (
+          <div className="result-card">
+            {/* NLS banner for searched part */}
+            {result.is_nls && (
+              <div className="nls-banner">
+                <div className="nls-banner-icon">⚠</div>
+                <div className="nls-banner-text">
+                  <div className="nls-banner-title">No Longer Serviced</div>
+                  {total > 0 && (
+                    <div className="nls-banner-body">This part cannot be reordered from Tata. Liquidate existing warehouse stock before fulfilling from alternates.</div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-          <div className="result-desc">{result.description || "—"}</div>
-
-          <div className="result-meta">
-            <span className="result-mrp">
-              Rs.&nbsp;{Number(result.mrp).toLocaleString("en-IN", {maximumFractionDigits:0})}
-            </span>
-            {result.discount_code && result.discount_code !== "--" && (
-              <span className="result-dc">{result.discount_code}</span>
             )}
-          </div>
 
-          {result.alternate_parts && result.alternate_parts !== "-" && result.alternate_parts !== "--" && (
-            <div className="result-alt-parts" style={{marginBottom:20}}>
-              Alt: {result.alternate_parts}
-            </div>
-          )}
-
-          <div className="stock-label">Stock Availability</div>
-          <div className="stock-rows">
-            <StockRow label="DIB" stock={result.dibrugarh} transit={result.tr_dibrugarh} bins={result.dib_bins ? result.dib_bins.split(";") : []} />
-            <StockRow label="JRH" stock={result.jorhat}    transit={result.tr_jorhat}    bins={result.jor_bins ? result.jor_bins.split(";") : []} />
-            <StockRow label="DMU" stock={result.dimapur}   transit={result.tr_dimapur}   bins={result.dim_bins ? result.dim_bins.split(";") : []} />
-            {result.dimapur_irs && result.dimapur_irs !== "-" && (
-              <StockRow label="DMU IRS" stock={result.dimapur_irs} transit={null} bins={result.irs_bins ? result.irs_bins.split(";") : []} />
-            )}
-          </div>
-
-          <div className="stock-total">
-            <span>Total</span>
-            <span className="stock-total-val">{total.toLocaleString()}</span>
-          </div>
-
-          {result.alt_availability && (() => {
-            const altEntries = result.alt_availability.split("|||").map(entry => {
-              const parts = entry.split("|")
-              const rawLocs = parts.slice(1)
-              return {
-                partNum: parts[0],
-                locs: rawLocs.map(l => { const [wh, qty] = l.split(":"); return { wh, qty } })
-              }
-            })
-            // Check if any alternate is NLS with stock (needs nls_parts set from API — approximated via
-            // checking if the alternate part number is flagged; we pass nls info via alt_availability prefix)
-            // NLS alternates are prefixed with "NLS:" in alt_availability when they have stock
-            const hasNlsAlt = altEntries.some(e => e.partNum.startsWith("NLS:"))
-            const cleanEntries = altEntries.map(e => ({
-              ...e,
-              isNls: e.partNum.startsWith("NLS:"),
-              partNum: e.partNum.startsWith("NLS:") ? e.partNum.slice(4) : e.partNum
-            }))
-            return (
-              <div className="alt-note">
-                {hasNlsAlt && (
-                  <div className="nls-stock-first">
-                    <div className="nls-stock-first-icon">⚠</div>
-                    <div>
-                      <div className="nls-stock-first-title">NLS Stock Available — Use First</div>
-                      <div className="nls-stock-first-body">
-                        {cleanEntries.filter(e => e.isNls).map(e => e.partNum).join(", ")} {cleanEntries.filter(e => e.isNls).length === 1 ? "is" : "are"} No Longer Serviced but {cleanEntries.filter(e => e.isNls).length === 1 ? "has" : "have"} stock available. Fulfil from NLS stock before using this part.
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <div className="alt-note-inner">
-                  <div className="alt-note-label">Alternate Available</div>
-                  <div className="alt-alts">
-                    {cleanEntries.map((entry, i) => (
-                      <div key={i} className="alt-block">
-                        <span className="alt-part-num">
-                          {entry.partNum}
-                          {entry.isNls && <span className="nls-badge-sm">NLS</span>}
-                        </span>
-                        <div className="alt-wh-row">
-                          {entry.locs.map((loc, j) => (
-                            <div key={j} className="alt-wh-tag">
-                              <span className="alt-wh-name">{loc.wh}</span>
-                              <span className="alt-wh-qty">{Number(loc.qty).toLocaleString()}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+            {/* Dead stock banner for searched part */}
+            {isDeadPart && (
+              <div className="dead-banner">
+                <div className="dead-banner-icon">⚠</div>
+                <div>
+                  <div className="dead-banner-title">Dead Stock — Prioritise When Selling</div>
+                  <div className="dead-pills">
+                    {deadWarehouses.map((w, i) => (
+                      <span key={i} className="dead-pill">
+                        {w.label} <span className="dead-pill-age">· {deadAge(w.date)}</span>
+                      </span>
                     ))}
                   </div>
                 </div>
               </div>
-            )
-          })()}
-        </div>
-      )}
+            )}
+
+            {/* Alt flag banners — one per flagged alternate */}
+            {altEntries.filter(e => e.isNls || e.age).map((e, i) => {
+              const label = [e.isNls && "NLS", e.age && "Dead Stock"].filter(Boolean).join(", ")
+              return (
+                <div key={i} className="alt-flag-banner">
+                  <div className="alt-flag-banner-icon">⚠</div>
+                  <div>
+                    <div className="alt-flag-banner-title">
+                      Alternate Part <span className="alt-flag-banner-pn">{e.partNum}</span> — {label}
+                    </div>
+                    <div className="alt-flag-banner-body">Sell alternate <strong>{e.partNum}</strong> instead.</div>
+                  </div>
+                </div>
+              )
+            })}
+
+            <div className="result-desc">{result.description || "—"}</div>
+
+            <div className="result-meta">
+              <span className="result-mrp">
+                Rs.&nbsp;{Number(result.mrp).toLocaleString("en-IN", {maximumFractionDigits:0})}
+              </span>
+              {result.discount_code && result.discount_code !== "--" && (
+                <span className="result-dc">{result.discount_code}</span>
+              )}
+            </div>
+
+            {result.alternate_parts && result.alternate_parts !== "-" && result.alternate_parts !== "--" && (
+              <div className="result-alt-parts" style={{marginBottom:20}}>
+                Alt: {result.alternate_parts}
+              </div>
+            )}
+
+            <div className="stock-label">Stock Availability</div>
+            <div className="stock-rows">
+              <StockRow label="DIB" stock={result.dibrugarh} transit={result.tr_dibrugarh} bins={result.dib_bins ? result.dib_bins.split(";") : []} lastReceived={result.dib_last_received} />
+              <StockRow label="JRH" stock={result.jorhat}    transit={result.tr_jorhat}    bins={result.jor_bins ? result.jor_bins.split(";") : []} lastReceived={result.jor_last_received} />
+              <StockRow label="DMU" stock={result.dimapur}   transit={result.tr_dimapur}   bins={result.dim_bins ? result.dim_bins.split(";") : []} lastReceived={result.dim_last_received} />
+              {result.dimapur_irs && result.dimapur_irs !== "-" && (
+                <StockRow label="DMU IRS" stock={result.dimapur_irs} transit={null} bins={result.irs_bins ? result.irs_bins.split(";") : []} lastReceived={null} />
+              )}
+            </div>
+
+            <div className="stock-total">
+              <span>Total</span>
+              <span className="stock-total-val">{total.toLocaleString()}</span>
+            </div>
+
+            {altEntries.length > 0 && (
+              <div className="alt-note">
+                <div className="alt-note-inner">
+                  <div className="alt-note-label">Alternate Available</div>
+                  <div className="alt-alts">
+                    {altEntries.map((entry, i) => {
+                      const isFlagged = entry.isNls || entry.age
+                      return (
+                        <div key={i} className="alt-block">
+                          <span className={`alt-part-num${isFlagged ? " dead-alt" : ""}`}>
+                            {entry.partNum}
+                          </span>
+                          {entry.isNls && <span className="alt-nls-badge">NLS</span>}
+                          {entry.age   && <span className="alt-dead-badge">DEAD · {entry.age}</span>}
+                          <div className="alt-wh-row">
+                            {entry.locs.map((loc, j) => (
+                              <div key={j} className={`alt-wh-tag${isFlagged ? " dead-alt-tag" : ""}`}>
+                                <span className="alt-wh-name">{loc.wh}</span>
+                                <span className="alt-wh-qty">{Number(loc.qty).toLocaleString()}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       <LastUpdated />
     </div>

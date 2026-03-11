@@ -35,7 +35,7 @@ warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 # Paste your Render PostgreSQL connection string here:
-DATABASE_URL = "postgresql://user:password@host/dbname"
+DATABASE_URL = "postgresql://neondb_owner:npg_UuwMydCR5nL9@ep-solitary-darkness-a1w259n3-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
 # Folder where your Siebel exports live:
 EXPORT_FOLDER = r"C:\TataExports"
@@ -343,7 +343,7 @@ def main():
     cur  = conn.cursor()
 
     log("Clearing old data...")
-    cur.execute("TRUNCATE TABLE tgp_parts")
+    cur.execute("TRUNCATE TABLE tgp_parts CASCADE")
 
     log("Inserting new data...")
     BATCH = 500
@@ -366,6 +366,19 @@ def main():
         done = min(i + BATCH, total)
         print(f"  Inserted {done:,} / {total:,} parts...", end='\r')
     print()  # newline after progress line
+
+    log("Inserting part_alternates...")
+    alt_pairs = []
+    for part, alts in alt_map.items():
+        for alt in alts:
+            alt_pairs.append((part, alt))
+    for i in range(0, len(alt_pairs), BATCH):
+        psycopg2.extras.execute_values(cur, """
+            INSERT INTO part_alternates (part_number, alt_part_number)
+            VALUES %s
+            ON CONFLICT DO NOTHING
+        """, alt_pairs[i:i+BATCH], page_size=BATCH)
+    print(f"  {len(alt_pairs):,} alternate pairs written.")
 
     cur.execute("INSERT INTO tgp_meta DEFAULT VALUES")
     conn.commit()
