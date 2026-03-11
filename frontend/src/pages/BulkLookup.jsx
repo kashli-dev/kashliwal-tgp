@@ -2,7 +2,7 @@ import { useState } from "react"
 import { fetchBulk } from "../api"
 import LastUpdated from "../components/LastUpdated"
 import * as XLSX from "xlsx"
-import { fmtDate } from "../utils"
+import { fmtDate, deadAge } from "../utils"
 
 function stockVal(val) {
   if (!val || val === "-" || val === "--") return { text: "—", cls: "na" }
@@ -45,7 +45,6 @@ function exportToExcel(results) {
       "JRH": "", "JRH Transit": "",
       "DMU": "", "DMU Transit": "",
       "DMU IRS": "",
-      "Alternate Part No.": "",
       "Alt. Availability": "",
       "DIB Bins": "", "JRH Bins": "", "DMU Bins": "",
       "DIB Received": "", "DIB Issue": "",
@@ -65,10 +64,13 @@ function exportToExcel(results) {
       "DMU":                stockNum(row.dimapur),
       "DMU Transit":        trNum(row.tr_dimapur),
       "DMU IRS":            stockNum(row.dimapur_irs),
-      "Alternate Part No.": row.alternate_parts && row.alternate_parts !== "-" ? row.alternate_parts.replace(/;/g, ",") : "",
-      "Alt. Availability":  row.alt_availability
-        ? row.alt_availability.split("|||").map(e => { const p = e.split("|")[0]; return p.startsWith("NLS:") ? p.slice(4)+" (NLS)" : p }).join(", ")
-        : "",
+      "Alt. Availability":  (row.alt_details || []).map(a => {
+          const age = deadAge(a.dib_last_received) || deadAge(a.jor_last_received) || deadAge(a.dim_last_received)
+          let label = a.part_number
+          if (a.is_nls) label += " (NLS)"
+          if (age) label += ` (DEAD · ${age})`
+          return label
+        }).join(", "),
       "DIB Bins":           bins(row.dib_bins),
       "JRH Bins":           bins(row.jor_bins),
       "DMU Bins":           bins(row.dim_bins),
@@ -101,7 +103,6 @@ function exportToExcel(results) {
     { wch: 8  },  // DMU
     { wch: 12 },  // DMU Transit
     { wch: 8  },  // DMU IRS
-    { wch: 28 },  // Alternate Part No.
     { wch: 52 },  // Alt. Availability
     { wch: 24 },  // DIB Bins
     { wch: 24 },  // JRH Bins
@@ -218,8 +219,7 @@ export default function BulkLookup() {
                   <th className="col-stock grp-start">DMU</th>
                   <th className="col-transit transit">DMU Transit</th>
                   {showIrs && <th className="col-irs grp-start">DMU IRS</th>}
-                  <th className="col-altno grp-start">Alt. Part No.</th>
-                  <th className="col-alt">Alt. Availability</th>
+                  <th className="col-alt grp-start">Alt. Availability</th>
                 </tr>
               </thead>
               <tbody>
@@ -231,16 +231,14 @@ export default function BulkLookup() {
                         {row.part_number}
                         {row.is_nls && <span className="nls-badge-sm">NLS</span>}
                       </td>
-                      <td colSpan={showIrs ? 11 : 10} className="td-notfound">Invalid part number</td>
+                      <td colSpan={showIrs ? 10 : 9} className="td-notfound">Invalid part number</td>
                     </tr>
                   )
                   const dib = stockVal(row.dibrugarh)
                   const jor = stockVal(row.jorhat)
                   const dim = stockVal(row.dimapur)
                   const irs = stockVal(row.dimapur_irs)
-                  const altParts = row.alternate_parts && row.alternate_parts !== "-"
-                    ? row.alternate_parts.replace(/;/g, ", ")
-                    : ""
+                  const altDetails = row.alt_details || []
                   return (
                     <tr key={i}>
                       <td className="td-idx">{i + 1}</td>
@@ -254,35 +252,27 @@ export default function BulkLookup() {
                       <td className={`td-stock grp-start ${dim.cls}`}>{dim.text}</td>
                       <td className="td-transit">{transitVal(row.tr_dimapur)}</td>
                       {showIrs && <td className={`td-stock grp-start ${irs.cls}`}>{irs.text}</td>}
-                      <td className="td-altno grp-start">{altParts}</td>
-                      <td className="td-alt">
-                        {row.alt_availability
+                      <td className="td-alt grp-start">
+                        {altDetails.length > 0
                           ? <div className="bulk-alt-cell">
-                              {row.alt_availability.split("|||").map((entry, i) => {
-                                const parts = entry.split("|")
-                                const rawPn = parts[0]
-                                const isNls = rawPn.startsWith("NLS:")
-                                const pn = isNls ? rawPn.slice(4) : rawPn
-                                const rawLocs = parts.slice(1)
+                              {altDetails.map((a, j) => {
+                                const age = deadAge(a.dib_last_received) || deadAge(a.jor_last_received) || deadAge(a.dim_last_received)
+                                const isDead = !!age
+                                const pnClass = (a.is_nls || isDead) ? "bulk-alt-pn-nls" : "bulk-alt-pn"
+                                const tagClass = (a.is_nls || isDead) ? "bulk-alt-tag-nls" : "bulk-alt-tag"
+                                const locs = [
+                                  { wh: "DIB", val: a.dibrugarh },
+                                  { wh: "JRH", val: a.jorhat },
+                                  { wh: "DMU", val: a.dimapur },
+                                ].filter(l => l.val && l.val !== "-" && Number(l.val) > 0)
                                 return (
-                                  <div key={i} className="bulk-alt-entry">
-                                    {isNls
-                                      ? <>
-                                          <span className="bulk-alt-pn-nls">{pn}</span>
-                                          <span className="bulk-alt-label-nls">(NLS)</span>
-                                          {rawLocs.map((l, j) => {
-                                            const [wh, qty] = l.split(":")
-                                            return <span key={j} className="bulk-alt-tag-nls">{wh}:{Number(qty).toLocaleString()}</span>
-                                          })}
-                                        </>
-                                      : <>
-                                          <span className="bulk-alt-pn">{pn}</span>
-                                          {rawLocs.map((l, j) => {
-                                            const [wh, qty] = l.split(":")
-                                            return <span key={j} className="bulk-alt-tag">{wh}:{Number(qty).toLocaleString()}</span>
-                                          })}
-                                        </>
-                                    }
+                                  <div key={j} className="bulk-alt-entry">
+                                    <span className={pnClass}>{a.part_number}</span>
+                                    {a.is_nls && <span className="bulk-alt-badge-nls">NLS</span>}
+                                    {isDead && <span className="bulk-alt-badge-dead">DEAD · {age}</span>}
+                                    {locs.map((l, k) => (
+                                      <span key={k} className={tagClass}>{l.wh}:{Number(l.val).toLocaleString()}</span>
+                                    ))}
                                   </div>
                                 )
                               })}

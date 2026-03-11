@@ -48,6 +48,11 @@ export default function SingleLookup() {
     if (q.length < 2) { setSuggestions([]); setShowDrop(false); return }
     try {
       const data = await fetchSearch(q)
+      if (data?.length === 1 && data[0].part_number.toUpperCase() === q.toUpperCase()) {
+        setSuggestions([]); setShowDrop(false)
+        lookup(data[0].part_number)
+        return
+      }
       setSuggestions(data || [])
       setShowDrop((data || []).length > 0)
     } catch {
@@ -58,6 +63,7 @@ export default function SingleLookup() {
   const handleChange = (e) => {
     const val = e.target.value
     setQuery(val)
+    setResult(null)
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => fetchSuggestions(val), 300)
   }

@@ -35,7 +35,7 @@ warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 # Paste your Render PostgreSQL connection string here:
-DATABASE_URL = "postgresql://neondb_owner:npg_UuwMydCR5nL9@ep-solitary-darkness-a1w259n3-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+DATABASE_URL = "postgresql://user:password@host/dbname"
 
 # Folder where your Siebel exports live:
 EXPORT_FOLDER = r"C:\TataExports"
@@ -368,9 +368,14 @@ def main():
     print()  # newline after progress line
 
     log("Inserting part_alternates...")
+    known_parts = {row[0] for row in rows}  # part_number is first element of each row tuple
     alt_pairs = []
     for part, alts in alt_map.items():
+        if part not in known_parts:
+            continue
         for alt in alts:
+            if alt not in known_parts:
+                continue
             alt_pairs.append((part, alt))
     for i in range(0, len(alt_pairs), BATCH):
         psycopg2.extras.execute_values(cur, """
