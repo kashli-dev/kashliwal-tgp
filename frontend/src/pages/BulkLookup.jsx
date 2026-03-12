@@ -246,7 +246,9 @@ export default function BulkLookup() {
                   const jor = stockVal(row.jorhat)
                   const dim = stockVal(row.dimapur)
                   const irs = stockVal(row.dimapur_irs)
-                  const altDetails = row.alt_details || []
+                  const altDetails = (row.alt_details || []).filter(a =>
+                    [a.dibrugarh, a.jorhat, a.dimapur].some(v => v && v !== "-" && Number(v) > 0)
+                  )
                   return (
                     <tr key={i}>
                       <td className="td-idx">{i + 1}</td>
@@ -255,13 +257,13 @@ export default function BulkLookup() {
                       <td className="td-mrp grp-end">{formatMrp(row.mrp)}</td>
                       <td className={`td-stock ${dib.cls}`}>{dib.text}</td>
                       <td className={`td-transit${showBins ? "" : " grp-end"}`}>{transitVal(row.tr_dibrugarh)}</td>
-                      <td className={`td-bins bins-col dib-bins grp-end${showBins ? " visible" : ""}`}>{row.bin_dibrugarh || "—"}</td>
+                      <td className={`td-bins bins-col dib-bins grp-end${showBins ? " visible" : ""}`}>{row.dib_bins || "—"}</td>
                       <td className={`td-stock ${jor.cls}`}>{jor.text}</td>
                       <td className={`td-transit${showBins ? "" : " grp-end"}`}>{transitVal(row.tr_jorhat)}</td>
-                      <td className={`td-bins bins-col jrh-bins grp-end${showBins ? " visible" : ""}`}>{row.bin_jorhat || "—"}</td>
+                      <td className={`td-bins bins-col jrh-bins grp-end${showBins ? " visible" : ""}`}>{row.jor_bins || "—"}</td>
                       <td className={`td-stock ${dim.cls}`}>{dim.text}</td>
                       <td className={`td-transit${showBins ? "" : " grp-end"}`}>{transitVal(row.tr_dimapur)}</td>
-                      <td className={`td-bins bins-col dmu-bins grp-end${showBins ? " visible" : ""}`}>{row.bin_dimapur || "—"}</td>
+                      <td className={`td-bins bins-col dmu-bins grp-end${showBins ? " visible" : ""}`}>{row.dim_bins || "—"}</td>
                       {showIrs && <td className={`td-stock grp-end ${irs.cls}`}>{irs.text}</td>}
                       <td className="td-alt">
                         {altDetails.length > 0
