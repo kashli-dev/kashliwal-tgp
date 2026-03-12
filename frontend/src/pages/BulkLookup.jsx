@@ -129,6 +129,7 @@ export default function BulkLookup() {
   const [results, setResults] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState(null)
+  const [showBins, setShowBins] = useState(false)
 
   const partList = input.split(/[\n,]+/).map(p => p.trim()).filter(Boolean)
 
@@ -202,6 +203,10 @@ export default function BulkLookup() {
             <span>{results.length} results</span>
             <span className="bulk-summary-found">{results.filter(r => r.found).length} found</span>
             <span className="bulk-summary-notfound">{results.filter(r => !r.found).length} not found</span>
+            <label className={`bins-toggle${showBins ? " checked" : ""}`} onClick={() => setShowBins(v => !v)}>
+              <div className="chk-box"><span className="chk-tick">✓</span></div>
+              <span className="chk-label">Bin Locations</span>
+            </label>
           </div>
 
           <div className="bulk-table-wrap">
@@ -211,15 +216,18 @@ export default function BulkLookup() {
                   <th className="col-idx">#</th>
                   <th className="col-part">Part Number</th>
                   <th className="col-desc">Description</th>
-                  <th className="col-mrp">MRP</th>
-                  <th className="col-stock grp-start">DIB</th>
-                  <th className="col-transit transit">DIB Transit</th>
-                  <th className="col-stock grp-start">JRH</th>
-                  <th className="col-transit transit">JRH Transit</th>
-                  <th className="col-stock grp-start">DMU</th>
-                  <th className="col-transit transit">DMU Transit</th>
-                  {showIrs && <th className="col-irs grp-start">DMU IRS</th>}
-                  <th className="col-alt grp-start">Alt. Availability</th>
+                  <th className="col-mrp grp-end">MRP</th>
+                  <th className="col-stock">DIB</th>
+                  <th className={`col-transit transit${showBins ? "" : " grp-end"}`}>DIB Transit</th>
+                  <th className={`bins-col dib-bins col-transit grp-end${showBins ? " visible" : ""}`} style={{fontStyle:"italic"}}>DIB Bins</th>
+                  <th className="col-stock">JRH</th>
+                  <th className={`col-transit transit${showBins ? "" : " grp-end"}`}>JRH Transit</th>
+                  <th className={`bins-col jrh-bins col-transit grp-end${showBins ? " visible" : ""}`} style={{fontStyle:"italic"}}>JRH Bins</th>
+                  <th className="col-stock">DMU</th>
+                  <th className={`col-transit transit${showBins ? "" : " grp-end"}`}>DMU Transit</th>
+                  <th className={`bins-col dmu-bins col-transit grp-end${showBins ? " visible" : ""}`} style={{fontStyle:"italic"}}>DMU Bins</th>
+                  {showIrs && <th className="col-irs grp-end">DMU IRS</th>}
+                  <th className="col-alt">Alt. Availability</th>
                 </tr>
               </thead>
               <tbody>
@@ -231,7 +239,7 @@ export default function BulkLookup() {
                         {row.part_number}
                         {row.is_nls && <span className="nls-badge-sm">NLS</span>}
                       </td>
-                      <td colSpan={showIrs ? 10 : 9} className="td-notfound">Invalid part number</td>
+                      <td colSpan={showIrs ? (showBins ? 13 : 10) : (showBins ? 12 : 9)} className="td-notfound">Invalid part number</td>
                     </tr>
                   )
                   const dib = stockVal(row.dibrugarh)
@@ -244,15 +252,18 @@ export default function BulkLookup() {
                       <td className="td-idx">{i + 1}</td>
                       <td className="td-part">{row.part_number}</td>
                       <td className="td-desc">{row.description || "—"}</td>
-                      <td className="td-mrp">{formatMrp(row.mrp)}</td>
-                      <td className={`td-stock grp-start ${dib.cls}`}>{dib.text}</td>
-                      <td className="td-transit">{transitVal(row.tr_dibrugarh)}</td>
-                      <td className={`td-stock grp-start ${jor.cls}`}>{jor.text}</td>
-                      <td className="td-transit">{transitVal(row.tr_jorhat)}</td>
-                      <td className={`td-stock grp-start ${dim.cls}`}>{dim.text}</td>
-                      <td className="td-transit">{transitVal(row.tr_dimapur)}</td>
-                      {showIrs && <td className={`td-stock grp-start ${irs.cls}`}>{irs.text}</td>}
-                      <td className="td-alt grp-start">
+                      <td className="td-mrp grp-end">{formatMrp(row.mrp)}</td>
+                      <td className={`td-stock ${dib.cls}`}>{dib.text}</td>
+                      <td className={`td-transit${showBins ? "" : " grp-end"}`}>{transitVal(row.tr_dibrugarh)}</td>
+                      <td className={`td-bins bins-col dib-bins grp-end${showBins ? " visible" : ""}`}>{row.bin_dibrugarh || "—"}</td>
+                      <td className={`td-stock ${jor.cls}`}>{jor.text}</td>
+                      <td className={`td-transit${showBins ? "" : " grp-end"}`}>{transitVal(row.tr_jorhat)}</td>
+                      <td className={`td-bins bins-col jrh-bins grp-end${showBins ? " visible" : ""}`}>{row.bin_jorhat || "—"}</td>
+                      <td className={`td-stock ${dim.cls}`}>{dim.text}</td>
+                      <td className={`td-transit${showBins ? "" : " grp-end"}`}>{transitVal(row.tr_dimapur)}</td>
+                      <td className={`td-bins bins-col dmu-bins grp-end${showBins ? " visible" : ""}`}>{row.bin_dimapur || "—"}</td>
+                      {showIrs && <td className={`td-stock grp-end ${irs.cls}`}>{irs.text}</td>}
+                      <td className="td-alt">
                         {altDetails.length > 0
                           ? <div className="bulk-alt-cell">
                               {altDetails.map((a, j) => {

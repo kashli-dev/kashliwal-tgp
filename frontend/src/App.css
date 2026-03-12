@@ -45,6 +45,11 @@ html, body, #root {
   -webkit-font-smoothing: antialiased;
 }
 
+body {
+  display: flex;
+  flex-direction: column;
+}
+
 /* ── HEADER ── */
 .header {
   background: var(--navy);
@@ -96,6 +101,11 @@ html, body, #root {
 }
 .main.bulk {
   max-width: 1300px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding-bottom: 24px;
 }
 
 /* ── SEARCH BOX ── */
@@ -355,13 +365,14 @@ html, body, #root {
 .last-updated span { color: var(--white50); }
 
 /* ── BULK PAGE ── */
-.bulk-page { width: 100%; }
+.bulk-page { flex: 1; display: flex; flex-direction: column; min-height: 0; width: 100%; }
 
 .bulk-top {
   display: flex;
   gap: 16px;
   align-items: flex-start;
   margin-bottom: 20px;
+  flex-shrink: 0;
 }
 .bulk-input-wrap { flex: 1; position: relative; }
 .bulk-input {
@@ -429,12 +440,13 @@ html, body, #root {
   margin-bottom: 10px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 .bulk-summary-found    { color: var(--green); }
 .bulk-summary-notfound { color: var(--red); }
 
 /* ── BULK TABLE ── */
-.bulk-table-wrap { overflow-x: auto; border: 1px solid var(--border); }
+.bulk-table-wrap { flex: 1; overflow-x: auto; overflow-y: auto; min-height: 0; border: 1px solid var(--border); }
 .bulk-table {
   width: 100%;
   border-collapse: collapse;
@@ -455,6 +467,7 @@ html, body, #root {
 }
 .bulk-table th.transit { color: var(--blue); }
 .bulk-table th.grp-start { border-left: 1px solid var(--border2); }
+.bulk-table th.grp-end, .bulk-table td.grp-end { border-right: 1px solid var(--border2); }
 .bulk-table td {
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
@@ -488,6 +501,20 @@ html, body, #root {
 .td-transit  { font-family: var(--mono); font-size: 11px; text-align: center; color: var(--blue); }
 
 .td-alt      { font-size: 10px; white-space: normal; }
+
+/* ── BINS COLUMNS ── */
+.bins-col         { display: none; }
+.bins-col.visible { display: table-cell; }
+.td-bins          { font-family: var(--mono); font-size: 10px; color: var(--white50); white-space: normal; min-width: 80px; }
+
+/* ── BINS TOGGLE ── */
+.bins-toggle { margin-left: auto; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+.chk-box { width: 13px; height: 13px; flex-shrink: 0; border: 1px solid var(--white50); display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.bins-toggle.checked .chk-box { border-color: var(--blue); background: var(--blue-dim); }
+.chk-tick  { display: none; color: var(--blue); font-size: 9px; font-weight: 700; line-height: 1; }
+.bins-toggle.checked .chk-tick { display: block; }
+.chk-label { font-size: 11px; color: var(--white80); letter-spacing: 0.03em; }
+.bins-toggle.checked .chk-label { color: var(--blue); }
 /* Sticky column headers — must match td z-index + 10 to layer above body */
 .bulk-table thead th.col-idx  { position: sticky; left: 0;    z-index: 12; background: var(--navy); }
 .bulk-table thead th.col-part { position: sticky; left: 36px; z-index: 12; background: var(--navy); border-right: 1px solid var(--border2); }
