@@ -76,7 +76,7 @@ def get_part(part_number: str):
         cur.execute("""
             SELECT
                 a.part_number, a.description, a.is_nls,
-                a.dibrugarh, a.jorhat, a.dimapur,
+                a.dibrugarh, a.jorhat, a.dimapur, a.dimapur_irs,
                 a.tr_dibrugarh, a.tr_jorhat, a.tr_dimapur,
                 a.dib_last_received, a.jor_last_received, a.dim_last_received
             FROM part_alternates pa
@@ -127,7 +127,7 @@ def bulk_lookup(part_numbers: List[str]):
                 SELECT
                     pa.part_number as lookup_pn,
                     a.part_number, a.description, a.is_nls,
-                    a.dibrugarh, a.jorhat, a.dimapur,
+                    a.dibrugarh, a.jorhat, a.dimapur, a.dimapur_irs,
                     a.tr_dibrugarh, a.tr_jorhat, a.tr_dimapur,
                     a.dib_last_received, a.jor_last_received, a.dim_last_received
                 FROM part_alternates pa

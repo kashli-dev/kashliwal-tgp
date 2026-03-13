@@ -179,14 +179,27 @@ export default function SingleLookup() {
         // ── Alt entries from structured alt_details ──
         const altEntries = (result.alt_details || []).map(a => {
           const locs = [
-            { wh: "DIB", qty: a.dibrugarh, transit: a.tr_dibrugarh },
-            { wh: "JRH", qty: a.jorhat,    transit: a.tr_jorhat    },
-            { wh: "DMU", qty: a.dimapur,   transit: a.tr_dimapur   },
+            { wh: "DIB",     qty: a.dibrugarh,   transit: a.tr_dibrugarh },
+            { wh: "JRH",     qty: a.jorhat,       transit: a.tr_jorhat    },
+            { wh: "DMU",     qty: a.dimapur,      transit: a.tr_dimapur   },
+            { wh: "DMU IRS", qty: a.dimapur_irs,  transit: null           },
           ].filter(l => l.qty && l.qty !== "-" && l.qty !== "0" && Number(l.qty) > 0)
+          const altDeadWh = [
+            { wh: "DIB",     qty: a.dibrugarh,   date: a.dib_last_received },
+            { wh: "JRH",     qty: a.jorhat,       date: a.jor_last_received },
+            { wh: "DMU",     qty: a.dimapur,      date: a.dim_last_received },
+            { wh: "DMU IRS", qty: a.dimapur_irs,  date: null                },
+          ].filter(w => w.qty && w.qty !== "-" && w.qty !== "0" && Number(w.qty) > 0)
+           .map(w => ({ wh: w.wh, age: deadAge(w.date) }))
+           .filter(w => w.age != null)
+           .sort((a, b) => parseFloat(b.age) - parseFloat(a.age))
+          const altAge = altDeadWh.length > 0
+            ? altDeadWh.map(w => `${w.wh}:${w.age}`).join(" ")
+            : null
           return {
             partNum:  a.part_number,
             isNls:    a.is_nls,
-            age:      deadAge(a.dib_last_received) || deadAge(a.jor_last_received) || deadAge(a.dim_last_received),
+            age:      altAge,
             locs,
           }
         }).filter(e => e.locs.length > 0) // only show alts that have stock

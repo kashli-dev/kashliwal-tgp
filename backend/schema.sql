@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS tgp_parts (
     dimapur                 TEXT,
     alternate_parts         TEXT,
     dimapur_irs             TEXT,
-    is_irs                  TEXT,
     alt_availability        TEXT,
     tr_dibrugarh            TEXT,
     tr_jorhat               TEXT,
@@ -24,7 +23,8 @@ CREATE TABLE IF NOT EXISTS tgp_parts (
     dib_bins                TEXT,
     jor_bins                TEXT,
     dim_bins                TEXT,
-    irs_bins                TEXT
+    irs_bins                TEXT,
+    is_nls                  BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS tgp_meta (
@@ -32,8 +32,16 @@ CREATE TABLE IF NOT EXISTS tgp_meta (
     refreshed_at    TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS part_alternates (
+    part_number     TEXT NOT NULL REFERENCES tgp_parts(part_number) ON DELETE CASCADE,
+    alt_part_number TEXT NOT NULL,
+    PRIMARY KEY (part_number, alt_part_number)
+);
+
 CREATE INDEX IF NOT EXISTS idx_tgp_parts_number ON tgp_parts (part_number);
 CREATE INDEX IF NOT EXISTS idx_tgp_parts_desc ON tgp_parts USING gin(to_tsvector('english', coalesce(description,'')));
+CREATE INDEX IF NOT EXISTS idx_part_alternates_part ON part_alternates (part_number);
+CREATE INDEX IF NOT EXISTS idx_part_alternates_alt  ON part_alternates (alt_part_number);
 
 -- Trigram index for fast ILIKE search on part_number (required for 250k+ rows)
 CREATE EXTENSION IF NOT EXISTS pg_trgm;

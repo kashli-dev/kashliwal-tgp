@@ -64,9 +64,30 @@ function exportToExcel(results) {
       "DMU":                stockNum(row.dimapur),
       "DMU Transit":        trNum(row.tr_dimapur),
       "DMU IRS":            stockNum(row.dimapur_irs),
-      "Alt. Availability":  (row.alt_details || []).map(a => {
-          const age = deadAge(a.dib_last_received) || deadAge(a.jor_last_received) || deadAge(a.dim_last_received)
-          let label = a.part_number
+      "Alt. Availability":  (row.alt_details || []).filter(a =>
+          [a.dibrugarh, a.jorhat, a.dimapur, a.dimapur_irs].some(v => v && v !== "-" && Number(v) > 0)
+        ).map(a => {
+          const altDeadWh = [
+            { wh: "DIB",     qty: a.dibrugarh,   date: a.dib_last_received },
+            { wh: "JRH",     qty: a.jorhat,       date: a.jor_last_received },
+            { wh: "DMU",     qty: a.dimapur,      date: a.dim_last_received },
+            { wh: "DMU IRS", qty: a.dimapur_irs,  date: null                },
+          ].filter(w => w.qty && w.qty !== "-" && Number(w.qty) > 0)
+           .map(w => ({ wh: w.wh, age: deadAge(w.date) }))
+           .filter(w => w.age != null)
+           .sort((a, b) => parseFloat(b.age) - parseFloat(a.age))
+          const age = altDeadWh.length > 0
+            ? altDeadWh.map(w => `${w.wh}:${w.age}`).join(" ")
+            : null
+          const locs = [
+            { wh: "DIB",     val: a.dibrugarh   },
+            { wh: "JRH",     val: a.jorhat       },
+            { wh: "DMU",     val: a.dimapur      },
+            { wh: "DMU IRS", val: a.dimapur_irs  },
+          ].filter(l => l.val && l.val !== "-" && Number(l.val) > 0)
+            .map(l => `${l.wh}:${Number(l.val).toLocaleString()}`)
+            .join(" ")
+          let label = `${a.part_number} ${locs}`
           if (a.is_nls) label += " (NLS)"
           if (age) label += ` (DEAD · ${age})`
           return label
@@ -247,7 +268,7 @@ export default function BulkLookup() {
                   const dim = stockVal(row.dimapur)
                   const irs = stockVal(row.dimapur_irs)
                   const altDetails = (row.alt_details || []).filter(a =>
-                    [a.dibrugarh, a.jorhat, a.dimapur].some(v => v && v !== "-" && Number(v) > 0)
+                    [a.dibrugarh, a.jorhat, a.dimapur, a.dimapur_irs].some(v => v && v !== "-" && Number(v) > 0)
                   )
                   return (
                     <tr key={i}>
@@ -269,23 +290,23 @@ export default function BulkLookup() {
                         {altDetails.length > 0
                           ? <div className="bulk-alt-cell">
                               {altDetails.map((a, j) => {
-                                const age = deadAge(a.dib_last_received) || deadAge(a.jor_last_received) || deadAge(a.dim_last_received)
-                                const isDead = !!age
-                                const pnClass = (a.is_nls || isDead) ? "bulk-alt-pn-nls" : "bulk-alt-pn"
-                                const tagClass = (a.is_nls || isDead) ? "bulk-alt-tag-nls" : "bulk-alt-tag"
                                 const locs = [
-                                  { wh: "DIB", val: a.dibrugarh },
-                                  { wh: "JRH", val: a.jorhat },
-                                  { wh: "DMU", val: a.dimapur },
-                                ].filter(l => l.val && l.val !== "-" && Number(l.val) > 0)
+                                  { wh: "DIB",     qty: a.dibrugarh,  date: a.dib_last_received },
+                                  { wh: "JRH",     qty: a.jorhat,     date: a.jor_last_received },
+                                  { wh: "DMU",     qty: a.dimapur,    date: a.dim_last_received },
+                                  { wh: "DMU IRS", qty: a.dimapur_irs, date: null               },
+                                ].filter(l => l.qty && l.qty !== "-" && Number(l.qty) > 0)
+                                 .map(l => ({ ...l, age: deadAge(l.date) }))
+                                const isDead = locs.some(l => l.age)
+                                const pnClass = (a.is_nls || isDead) ? "bulk-alt-pn-nls" : "bulk-alt-pn"
                                 return (
                                   <div key={j} className="bulk-alt-entry">
                                     <span className={pnClass}>{a.part_number}</span>
                                     {a.is_nls && <span className="bulk-alt-badge-nls">NLS</span>}
-                                    {isDead && <span className="bulk-alt-badge-dead">DEAD · {age}</span>}
-                                    {locs.map((l, k) => (
-                                      <span key={k} className={tagClass}>{l.wh}:{Number(l.val).toLocaleString()}</span>
-                                    ))}
+                                    {locs.map((l, k) => l.age
+                                      ? <span key={k} className="bulk-alt-tag-dead">DEAD·{l.wh}:{Number(l.qty).toLocaleString()}</span>
+                                      : <span key={k} className="bulk-alt-tag">{l.wh}:{Number(l.qty).toLocaleString()}</span>
+                                    )}
                                   </div>
                                 )
                               })}

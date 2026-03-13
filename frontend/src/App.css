@@ -487,7 +487,7 @@ body {
 .col-transit { text-align: center; }
 .col-irs   { text-align: center; }
 
-.col-alt   { min-width: 180px; white-space: normal; }
+.col-alt   { min-width: 180px; white-space: nowrap; }
 
 .td-idx      { color: var(--white25); font-size: 10px; text-align: center; position: sticky; left: 0; background: var(--panel); z-index: 1; }
 .td-part     { font-family: var(--mono); font-size: 11px; color: var(--white80); position: sticky; left: 36px; background: var(--panel); z-index: 1; border-right: 1px solid var(--border2); }
@@ -500,7 +500,7 @@ body {
 .td-stock.na  { color: var(--white25); font-size: 14px; }
 .td-transit  { font-family: var(--mono); font-size: 11px; text-align: center; color: var(--blue); }
 
-.td-alt      { font-size: 10px; white-space: normal; }
+.td-alt      { font-size: 10px; white-space: nowrap; }
 
 /* ── BINS COLUMNS ── */
 .bins-col         { display: none; }
@@ -524,7 +524,7 @@ body {
 .bulk-table tr:hover td.td-part { background: var(--panel2); }
 
 .bulk-alt-cell  { display: flex; flex-direction: column; gap: 5px; }
-.bulk-alt-entry { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.bulk-alt-entry { display: flex; align-items: center; gap: 5px; flex-wrap: nowrap; }
 .bulk-alt-pn    { font-family: var(--mono); font-size: 10px; color: var(--amber); white-space: nowrap; }
 .bulk-alt-pn-nls    { font-family: var(--mono); font-size: 10px; color: var(--red); font-weight: 600; white-space: nowrap; }
 .bulk-alt-label-nls { font-size: 8px; font-weight: 700; letter-spacing: 0.08em; color: rgba(254,77,77,0.7); }
