@@ -150,20 +150,22 @@ export default function BulkLookup() {
   const [results, setResults] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState(null)
+  const [retrying, setRetrying] = useState(false)
   const [showBins, setShowBins] = useState(false)
 
   const partList = input.split(/[\n,]+/).map(p => p.trim()).filter(Boolean)
 
   const handleLookup = async () => {
     if (!partList.length) return
-    setLoading(true); setError(null)
+    setLoading(true); setError(null); setRetrying(false)
     try {
-      const data = await fetchBulk(partList)
+      const data = await fetchBulk(partList, () => setRetrying(true))
       setResults(data)
     } catch {
       setError("Could not reach the server. Please try again.")
     } finally {
       setLoading(false)
+      setRetrying(false)
     }
   }
 
@@ -214,7 +216,7 @@ export default function BulkLookup() {
       {loading && (
         <div className="loading">
           <div className="spinner" />
-          Looking up {partList.length} part{partList.length !== 1 ? "s" : ""}...
+          {retrying ? "Server waking up, please wait…" : `Looking up ${partList.length} part${partList.length !== 1 ? "s" : ""}...`}
         </div>
       )}
 

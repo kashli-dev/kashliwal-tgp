@@ -34,19 +34,23 @@ def health():
 @app.get("/meta")
 def meta():
     """Returns last updated timestamp"""
+    conn = None
     try:
         conn = get_conn()
         cur = conn.cursor()
         cur.execute("SELECT refreshed_at FROM tgp_meta ORDER BY id DESC LIMIT 1")
         row = cur.fetchone()
-        conn.close()
         return {"last_updated": str(row["refreshed_at"]) if row else None}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
 
 @app.get("/part/{part_number}")
 def get_part(part_number: str):
     """Single part lookup"""
+    conn = None
     try:
         conn = get_conn()
         cur = conn.cursor()
@@ -67,7 +71,6 @@ def get_part(part_number: str):
         """, (normalize(part_number),))
         row = cur.fetchone()
         if not row:
-            conn.close()
             return {"found": False, "part_number": part_number}
         result = dict(row)
         result["found"] = True
@@ -86,16 +89,19 @@ def get_part(part_number: str):
         """, (normalize(part_number),))
         result["alt_details"] = [dict(r) for r in cur.fetchall()]
 
-        conn.close()
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
 
 @app.post("/parts/bulk")
 def bulk_lookup(part_numbers: List[str]):
     """Bulk part lookup — accepts list of part numbers"""
     if len(part_numbers) > 500:
         raise HTTPException(status_code=400, detail="Max 500 parts per request")
+    conn = None
     try:
         conn = get_conn()
         cur = conn.cursor()
@@ -140,7 +146,6 @@ def bulk_lookup(part_numbers: List[str]):
                 lookup_pn = d.pop("lookup_pn")
                 alt_details_map[lookup_pn].append(d)
 
-        conn.close()
         # Return in same order as input, mark not found
         result = []
         for p in normalized:
@@ -151,16 +156,19 @@ def bulk_lookup(part_numbers: List[str]):
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()
 
 @app.get("/search")
 def search(q: str = Query(..., min_length=2)):
     """Search parts by part number — contains match or wildcard (*) — used for autocomplete"""
+    conn = None
     try:
         conn = get_conn()
         cur = conn.cursor()
         nq = normalize(q)
         if "*" in nq:
-            # Wildcard mode: * -> % for SQL ILIKE
             pattern = nq.replace("*", "%")
             cur.execute("""
                 SELECT part_number, description
@@ -170,7 +178,6 @@ def search(q: str = Query(..., min_length=2)):
                 LIMIT 10
             """, (pattern,))
         else:
-            # Contains match, prefix results first
             cur.execute("""
                 SELECT part_number, description
                 FROM tgp_parts
@@ -181,7 +188,9 @@ def search(q: str = Query(..., min_length=2)):
                 LIMIT 10
             """, (f"%{nq}%", f"{nq}%"))
         rows = [dict(r) for r in cur.fetchall()]
-        conn.close()
         return rows
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            conn.close()

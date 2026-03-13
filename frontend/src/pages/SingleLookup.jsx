@@ -9,6 +9,7 @@ export default function SingleLookup() {
   const [result, setResult]       = useState(null)
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState(null)
+  const [retrying, setRetrying]   = useState(false)
   const [suggestions, setSuggestions] = useState([])
   const [showDrop, setShowDrop]   = useState(false)
   const timerRef  = useRef(null)
@@ -32,14 +33,15 @@ export default function SingleLookup() {
   const lookup = useCallback(async (val) => {
     const q = val.trim()
     if (!q) { setResult(null); setError(null); return }
-    setLoading(true); setError(null); setShowDrop(false)
+    setLoading(true); setError(null); setRetrying(false); setShowDrop(false)
     try {
-      const data = await fetchPart(q)
+      const data = await fetchPart(q, () => setRetrying(true))
       setResult(data)
     } catch {
       setError("Could not reach the server. Please try again.")
     } finally {
       setLoading(false)
+      setRetrying(false)
     }
   }, [])
 
@@ -152,7 +154,7 @@ export default function SingleLookup() {
       </div>
 
       {loading && (
-        <div className="loading"><div className="spinner" />Looking up part...</div>
+        <div className="loading"><div className="spinner" />{retrying ? "Server waking up, please wait…" : "Looking up part..."}</div>
       )}
 
       {error && <div className="not-found">{error}</div>}
