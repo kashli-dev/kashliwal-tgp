@@ -460,7 +460,7 @@ body {
   font-weight: 600;
   letter-spacing: 0.15em;
   text-transform: uppercase;
-  padding: 10px 12px;
+  padding: 0;
   text-align: left;
   border-bottom: 1px solid var(--border2);
   white-space: nowrap;
@@ -505,7 +505,7 @@ body {
 /* ── BINS COLUMNS ── */
 .bins-col         { display: none; }
 .bins-col.visible { display: table-cell; }
-.td-bins          { font-family: var(--mono); font-size: 10px; color: var(--white50); white-space: normal; min-width: 80px; }
+.td-bins          { font-family: var(--mono); font-size: 10px; color: var(--white50); white-space: nowrap; text-align: center; }
 
 /* ── BINS TOGGLE ── */
 .bins-toggle { margin-left: auto; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
@@ -519,6 +519,81 @@ body {
 .bulk-table thead th.col-idx  { position: sticky; left: 0;    z-index: 12; background: var(--navy); }
 .bulk-table thead th.col-part { position: sticky; left: 36px; z-index: 12; background: var(--navy); border-right: 1px solid var(--border2); }
 
+/* ── DRAG-AND-DROP COLUMN REORDER ── */
+
+/* Each draggable th uses a flex inner wrapper */
+.bulk-table th .th-inner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+}
+
+/* Centred columns (stock/transit/bins): centre the label between handle and spacer */
+.bulk-table th.col-center .th-inner {
+  justify-content: center;
+}
+
+/* Drag handle — hidden until hover */
+.bulk-table th .drag-handle {
+  width: 12px;
+  height: 14px;
+  flex-shrink: 0;
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.bulk-table th:not(.col-idx):not(.col-part):hover .drag-handle {
+  opacity: 0.5;
+}
+.bulk-table th:not(.col-idx):not(.col-part):hover {
+  background: rgba(77,124,254,0.06);
+}
+
+/* Invisible spacer on the right of centred headers — balances the handle so
+   the label sits in the true centre of the cell */
+.drag-spacer {
+  width: 12px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+/* Drop indicators */
+.bulk-table th.drag-drop-left  { box-shadow: -3px 0 0 0 var(--blue); }
+.bulk-table th.drag-drop-right { box-shadow:  3px 0 0 0 var(--blue); }
+
+/* Source column fades while dragging */
+.bulk-table th.drag-src { opacity: 0.3; }
+
+/* Floating ghost label follows the cursor */
+.col-drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  background: var(--navy);
+  border: 1px solid var(--blue);
+  color: var(--blue);
+  font-family: var(--font);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  white-space: nowrap;
+  display: none;
+}
+
+/* ── MOBILE: disable drag entirely ── */
+@media (max-width: 768px) {
+  .bulk-table th .drag-handle { display: none !important; }
+  .drag-spacer                { display: none; }
+  /* Without the spacer, centred headers revert to normal left-align */
+  .bulk-table th.col-center .th-inner { justify-content: flex-start; }
+}
+
 /* Row hover: keep sticky cells in sync */
 .bulk-table tr:hover td.td-idx,
 .bulk-table tr:hover td.td-part { background: var(--panel2); }
@@ -526,13 +601,14 @@ body {
 .bulk-alt-cell  { display: flex; flex-direction: column; gap: 5px; }
 .bulk-alt-entry { display: flex; align-items: center; gap: 5px; flex-wrap: nowrap; }
 .bulk-alt-pn    { font-family: var(--mono); font-size: 10px; color: var(--amber); white-space: nowrap; }
-.bulk-alt-pn-nls    { font-family: var(--mono); font-size: 10px; color: var(--red); font-weight: 600; white-space: nowrap; }
-.bulk-alt-label-nls { font-size: 8px; font-weight: 700; letter-spacing: 0.08em; color: rgba(254,77,77,0.7); }
-.bulk-alt-badge-nls { font-size: 8px; font-weight: 700; letter-spacing: 0.08em; font-family: var(--mono); padding: 1px 5px; background: var(--amber-dim); color: var(--amber); border: 1px solid var(--amber-ring); white-space: nowrap; }
-.bulk-alt-badge-dead { font-size: 8px; font-weight: 700; letter-spacing: 0.06em; font-family: var(--mono); padding: 1px 5px; background: var(--red-dim); color: var(--red); border: 1px solid var(--red-ring); white-space: nowrap; }
+.bulk-alt-pn-nls    { font-family: var(--mono); font-size: 10px; color: var(--red); font-weight: 400; white-space: nowrap; }
+.bulk-alt-label-nls { font-size: 8px; font-weight: 400; letter-spacing: 0.08em; color: rgba(254,77,77,0.7); }
+.bulk-alt-badge-nls { font-size: 8px; font-weight: 400; letter-spacing: 0.08em; font-family: var(--mono); padding: 1px 5px; background: var(--amber-dim); color: var(--amber); border: 1px solid var(--amber-ring); white-space: nowrap; }
+.bulk-alt-badge-dead { font-size: 8px; font-weight: 400; letter-spacing: 0.06em; font-family: var(--mono); padding: 1px 5px; background: var(--red-dim); color: var(--red); border: 1px solid var(--red-ring); white-space: nowrap; }
 .bulk-alt-tag-nls   { font-family: var(--mono); font-size: 9px; background: var(--red-dim); color: var(--red); padding: 1px 5px; border: 1px solid var(--red-ring); white-space: nowrap; }
 .bulk-alt-nls-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--red); margin-right: 5px; flex-shrink: 0; position: relative; top: -1px; }
-.bulk-alt-tag   { font-family: var(--mono); font-size: 9px; background: var(--blue-dim); color: var(--blue); padding: 1px 5px; border-radius: 2px; white-space: nowrap; }
+.bulk-alt-tag      { font-family: var(--mono); font-size: 9px; background: var(--blue-dim); color: var(--blue); padding: 1px 5px; border-radius: 2px; white-space: nowrap; }
+.bulk-alt-tag-dead { font-family: var(--mono); font-size: 9px; background: var(--red-dim);  color: var(--red);  padding: 1px 5px; border: 1px solid var(--red-ring); white-space: nowrap; }
 
 
 
@@ -554,7 +630,7 @@ body {
 .nls-badge-sm {
   display: inline-block;
   font-size: 8px;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   background: var(--amber-dim);
@@ -621,7 +697,7 @@ body {
 }
 .alt-flag-banner-icon { font-size: 15px; flex-shrink: 0; line-height: 1.3; color: var(--red); }
 .alt-flag-banner-title { font-size: 12px; font-weight: 600; color: var(--red); letter-spacing: 0.02em; margin-bottom: 3px; }
-.alt-flag-banner-pn { font-family: var(--mono); letter-spacing: 0.04em; }
+.alt-flag-banner-pn { font-family: var(--mono); letter-spacing: 0.04em; font-weight: 400; }
 .alt-flag-banner-body { font-size: 11px; color: rgba(254,77,77,0.75); line-height: 1.5; }
 .alt-flag-banner-body strong { color: rgba(254,77,77,1); }
 
@@ -634,7 +710,7 @@ body {
 .alt-nls-badge {
   font-size: 9px;
   font-family: var(--mono);
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.06em;
   padding: 1px 6px;
   color: var(--amber);
@@ -646,7 +722,7 @@ body {
 .alt-dead-badge {
   font-size: 9px;
   font-family: var(--mono);
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.06em;
   padding: 1px 6px;
   color: var(--red);
