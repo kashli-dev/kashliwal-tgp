@@ -202,6 +202,7 @@ export default function SingleLookup() {
             partNum:  a.part_number,
             isNls:    a.is_nls,
             age:      altAge,
+            deadWhs:  new Set(altDeadWh.map(w => w.wh)),
             locs,
           }
         }).filter(e => e.locs.length > 0) // only show alts that have stock
@@ -301,12 +302,15 @@ export default function SingleLookup() {
                           {entry.isNls && <span className="alt-nls-badge">NLS</span>}
                           {entry.age   && <span className="alt-dead-badge">DEAD · {entry.age}</span>}
                           <div className="alt-wh-row">
-                            {entry.locs.map((loc, j) => (
-                              <div key={j} className={`alt-wh-tag${isFlagged ? " dead-alt-tag" : ""}`}>
-                                <span className="alt-wh-name">{loc.wh}</span>
-                                <span className="alt-wh-qty">{Number(loc.qty).toLocaleString()}</span>
-                              </div>
-                            ))}
+                            {entry.locs.map((loc, j) => {
+                              const thisLocDead = entry.deadWhs && entry.deadWhs.has(loc.wh)
+                              return (
+                                <div key={j} className={`alt-wh-tag${thisLocDead ? " dead-alt-tag" : ""}`}>
+                                  <span className="alt-wh-name">{loc.wh}</span>
+                                  <span className="alt-wh-qty">{Number(loc.qty).toLocaleString()}</span>
+                                </div>
+                              )
+                            })}
                           </div>
                         </div>
                       )

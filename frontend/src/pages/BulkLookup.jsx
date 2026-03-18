@@ -436,7 +436,7 @@ export default function BulkLookup() {
           </div>
 
           <div className="bulk-table-wrap">
-            <table className="bulk-table" style={{ tableLayout: "auto", width: "max-content", minWidth: "100%" }}>
+            <table className="bulk-table" style={{ tableLayout: "auto", minWidth: "100%" }}>
               <thead>
                 <tr>
                   <th className="col-idx">

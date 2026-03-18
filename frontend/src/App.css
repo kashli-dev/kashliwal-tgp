@@ -455,7 +455,7 @@ body {
 .bulk-table thead { position: sticky; top: 0; z-index: 20; }
 .bulk-table th {
   background: var(--navy);
-  color: var(--white25);
+  color: var(--white50);
   font-size: 9px;
   font-weight: 600;
   letter-spacing: 0.15em;
@@ -600,15 +600,15 @@ body {
 
 .bulk-alt-cell  { display: flex; flex-direction: column; gap: 5px; }
 .bulk-alt-entry { display: flex; align-items: center; gap: 5px; flex-wrap: nowrap; }
-.bulk-alt-pn    { font-family: var(--mono); font-size: 10px; color: var(--amber); white-space: nowrap; }
-.bulk-alt-pn-nls    { font-family: var(--mono); font-size: 10px; color: var(--red); font-weight: 400; white-space: nowrap; }
-.bulk-alt-label-nls { font-size: 8px; font-weight: 400; letter-spacing: 0.08em; color: rgba(254,77,77,0.7); }
-.bulk-alt-badge-nls { font-size: 8px; font-weight: 400; letter-spacing: 0.08em; font-family: var(--mono); padding: 1px 5px; background: var(--amber-dim); color: var(--amber); border: 1px solid var(--amber-ring); white-space: nowrap; }
-.bulk-alt-badge-dead { font-size: 8px; font-weight: 400; letter-spacing: 0.06em; font-family: var(--mono); padding: 1px 5px; background: var(--red-dim); color: var(--red); border: 1px solid var(--red-ring); white-space: nowrap; }
-.bulk-alt-tag-nls   { font-family: var(--mono); font-size: 9px; background: var(--red-dim); color: var(--red); padding: 1px 5px; border: 1px solid var(--red-ring); white-space: nowrap; }
+.bulk-alt-pn    { font-family: var(--mono); font-size: 11px; color: var(--amber); white-space: nowrap; }
+.bulk-alt-pn-nls    { font-family: var(--mono); font-size: 11px; color: var(--red); font-weight: 400; white-space: nowrap; }
+.bulk-alt-label-nls { font-size: 9px; font-weight: 400; letter-spacing: 0.08em; color: rgba(254,77,77,0.7); }
+.bulk-alt-badge-nls { font-size: 9px; font-weight: 400; letter-spacing: 0.08em; font-family: var(--mono); padding: 1px 5px; background: var(--amber-dim); color: var(--amber); border: 1px solid var(--amber-ring); white-space: nowrap; }
+.bulk-alt-badge-dead { font-size: 9px; font-weight: 400; letter-spacing: 0.06em; font-family: var(--mono); padding: 1px 5px; background: var(--red-dim); color: var(--red); border: 1px solid var(--red-ring); white-space: nowrap; }
+.bulk-alt-tag-nls   { font-family: var(--mono); font-size: 10px; background: var(--red-dim); color: var(--red); padding: 1px 5px; border: 1px solid var(--red-ring); white-space: nowrap; }
 .bulk-alt-nls-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--red); margin-right: 5px; flex-shrink: 0; position: relative; top: -1px; }
-.bulk-alt-tag      { font-family: var(--mono); font-size: 9px; background: var(--blue-dim); color: var(--blue); padding: 1px 5px; border-radius: 2px; white-space: nowrap; }
-.bulk-alt-tag-dead { font-family: var(--mono); font-size: 9px; background: var(--red-dim);  color: var(--red);  padding: 1px 5px; border: 1px solid var(--red-ring); white-space: nowrap; }
+.bulk-alt-tag      { font-family: var(--mono); font-size: 10px; background: var(--blue-dim); color: var(--blue); padding: 1px 5px; border-radius: 2px; white-space: nowrap; }
+.bulk-alt-tag-dead { font-family: var(--mono); font-size: 10px; background: var(--red-dim);  color: var(--red);  padding: 1px 5px; border: 1px solid var(--red-ring); white-space: nowrap; }
 
 
 
@@ -682,7 +682,7 @@ body {
   background: var(--red-dim);
   border: 1px solid var(--red-ring);
 }
-.dead-pill-age { opacity: 0.65; font-size: 9px; }
+.dead-pill-age { font-size: 9px; }
 
 /* ── ALT FLAG BANNER (NLS / dead alt) ── */
 .alt-flag-banner {
