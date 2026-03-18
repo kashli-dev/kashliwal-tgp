@@ -460,7 +460,7 @@ body {
   font-weight: 600;
   letter-spacing: 0.15em;
   text-transform: uppercase;
-  padding: 0;
+  padding: 10px 12px;
   text-align: left;
   border-bottom: 1px solid var(--border2);
   white-space: nowrap;
@@ -519,80 +519,7 @@ body {
 .bulk-table thead th.col-idx  { position: sticky; left: 0;    z-index: 12; background: var(--navy); }
 .bulk-table thead th.col-part { position: sticky; left: 36px; z-index: 12; background: var(--navy); border-right: 1px solid var(--border2); }
 
-/* ── DRAG-AND-DROP COLUMN REORDER ── */
 
-/* Each draggable th uses a flex inner wrapper */
-.bulk-table th .th-inner {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 12px;
-}
-
-/* Centred columns (stock/transit/bins): centre the label between handle and spacer */
-.bulk-table th.col-center .th-inner {
-  justify-content: center;
-}
-
-/* Drag handle — hidden until hover */
-.bulk-table th .drag-handle {
-  width: 12px;
-  height: 14px;
-  flex-shrink: 0;
-  cursor: grab;
-  opacity: 0;
-  transition: opacity 0.15s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.bulk-table th:not(.col-idx):not(.col-part):hover .drag-handle {
-  opacity: 0.5;
-}
-.bulk-table th:not(.col-idx):not(.col-part):hover {
-  background: rgba(77,124,254,0.06);
-}
-
-/* Invisible spacer on the right of centred headers — balances the handle so
-   the label sits in the true centre of the cell */
-.drag-spacer {
-  width: 12px;
-  height: 14px;
-  flex-shrink: 0;
-}
-
-/* Drop indicators */
-.bulk-table th.drag-drop-left  { box-shadow: -3px 0 0 0 var(--blue); }
-.bulk-table th.drag-drop-right { box-shadow:  3px 0 0 0 var(--blue); }
-
-/* Source column fades while dragging */
-.bulk-table th.drag-src { opacity: 0.3; }
-
-/* Floating ghost label follows the cursor */
-.col-drag-ghost {
-  position: fixed;
-  pointer-events: none;
-  z-index: 9999;
-  background: var(--navy);
-  border: 1px solid var(--blue);
-  color: var(--blue);
-  font-family: var(--font);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  padding: 6px 12px;
-  white-space: nowrap;
-  display: none;
-}
-
-/* ── MOBILE: disable drag entirely ── */
-@media (max-width: 768px) {
-  .bulk-table th .drag-handle { display: none !important; }
-  .drag-spacer                { display: none; }
-  /* Without the spacer, centred headers revert to normal left-align */
-  .bulk-table th.col-center .th-inner { justify-content: flex-start; }
-}
 
 /* Row hover: keep sticky cells in sync */
 .bulk-table tr:hover td.td-idx,
