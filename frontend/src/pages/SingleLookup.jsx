@@ -190,13 +190,13 @@ export default function SingleLookup() {
             { wh: "DIB",     qty: a.dibrugarh,   date: a.dib_last_received },
             { wh: "JRH",     qty: a.jorhat,       date: a.jor_last_received },
             { wh: "DMU",     qty: a.dimapur,      date: a.dim_last_received },
-            { wh: "DMU IRS", qty: a.dimapur_irs,  date: null                },
+            { wh: "DMU IRS", qty: a.dimapur_irs,  date: null, forceDead: true },
           ].filter(w => w.qty && w.qty !== "-" && w.qty !== "0" && Number(w.qty) > 0)
-           .map(w => ({ wh: w.wh, age: deadAge(w.date) }))
+           .map(w => ({ wh: w.wh, age: w.forceDead ? "dead" : deadAge(w.date) }))
            .filter(w => w.age != null)
            .sort((a, b) => parseFloat(b.age) - parseFloat(a.age))
           const altAge = altDeadWh.length > 0
-            ? altDeadWh.map(w => `${w.wh}:${w.age}`).join(" ")
+            ? altDeadWh.filter(w => w.age !== "dead").map(w => `${w.wh}:${w.age}`).join(" ") || "Dead Stock"
             : null
           return {
             partNum:  a.part_number,
@@ -278,7 +278,7 @@ export default function SingleLookup() {
               <StockRow label="JRH" stock={result.jorhat}    transit={result.tr_jorhat}    bins={result.jor_bins ? result.jor_bins.split(";") : []} lastReceived={result.jor_last_received} />
               <StockRow label="DMU" stock={result.dimapur}   transit={result.tr_dimapur}   bins={result.dim_bins ? result.dim_bins.split(";") : []} lastReceived={result.dim_last_received} />
               {result.dimapur_irs && result.dimapur_irs !== "-" && (
-                <StockRow label="DMU IRS" stock={result.dimapur_irs} transit={null} bins={result.irs_bins ? result.irs_bins.split(";") : []} lastReceived={null} />
+                <StockRow label="DMU IRS" stock={result.dimapur_irs} transit={null} bins={result.irs_bins ? result.irs_bins.split(";") : []} lastReceived={null} forceDead />
               )}
             </div>
 

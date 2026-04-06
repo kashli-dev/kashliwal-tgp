@@ -9,7 +9,7 @@ function isValidBin(val) {
   return true
 }
 
-export default function StockRow({ label, stock, transit, bins, lastReceived }) {
+export default function StockRow({ label, stock, transit, bins, lastReceived, forceDead }) {
   const [open, setOpen] = useState(false)
 
   const stockNum = (!stock || stock === "-" || stock === "Out of Stock") ? null : Number(stock)
@@ -27,11 +27,11 @@ export default function StockRow({ label, stock, transit, bins, lastReceived }) 
   const validBins = (bins || []).filter(isValidBin)
   const hasChevron = !isNA && validBins.length > 0
 
-  const age = (!isNA && !isOOS) ? deadAge(lastReceived) : null
+  const age = (!isNA && !isOOS) ? (forceDead || deadAge(lastReceived)) : null
 
   const handleClick = () => { if (hasChevron) setOpen(o => !o) }
 
-  // border class: dead if age exists, neutral otherwise
+  // border class: dead if age exists (or forceDead), neutral otherwise
   const borderClass = age ? "dead-row" : "fresh-row"
 
   return (

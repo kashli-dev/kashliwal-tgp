@@ -2,7 +2,7 @@ import { useState } from "react"
 import { fetchBulk } from "../api"
 import LastUpdated from "../components/LastUpdated"
 import * as XLSX from "xlsx"
-import { fmtDate, deadAge } from "../utils"
+import { deadAge } from "../utils"
 
 function stockVal(val) {
   if (!val || val === "-" || val === "--") return { text: "—", cls: "na" }
@@ -23,6 +23,15 @@ function formatMrp(mrp) {
   return `Rs. ${Number(mrp).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`
 }
 
+// Parse "yyyy-mm-dd" string into a local Date (no timezone shift)
+function parseDate(s) {
+  if (!s) return ""
+  const parts = s.split("-")
+  if (parts.length !== 3 || parts[0].length !== 4) return ""
+  const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
+  return isNaN(d.getTime()) ? "" : d
+}
+
 function exportToExcel(results) {
   const stockNum = (v) => {
     if (!v || v === "-" || v === "--") return ""
@@ -38,7 +47,7 @@ function exportToExcel(results) {
   const makeRow = (row, i) => {
     if (!row.found) return {
       "#": i + 1,
-      "Part Number": row.part_number,
+      "Part Number": /^\d+$/.test(row.part_number) && row.part_number[0] !== "0" ? Number(row.part_number) : row.part_number,
       "Description": "Not found",
       "MRP (Rs.)": "",
       "DIB": "", "DIB Transit": "",
@@ -54,7 +63,7 @@ function exportToExcel(results) {
     const bins = (v) => v ? v.replace(/;/g, ", ") : ""
     return {
       "#":                  i + 1,
-      "Part Number":        row.part_number,
+      "Part Number":        /^\d+$/.test(row.part_number) && row.part_number[0] !== "0" ? Number(row.part_number) : row.part_number,
       "Description":        row.description || "",
       "MRP (Rs.)":          row.mrp ? Math.round(Number(row.mrp)) : "",
       "DIB":                stockNum(row.dibrugarh),
@@ -71,13 +80,13 @@ function exportToExcel(results) {
             { wh: "DIB",     qty: a.dibrugarh,   date: a.dib_last_received },
             { wh: "JRH",     qty: a.jorhat,       date: a.jor_last_received },
             { wh: "DMU",     qty: a.dimapur,      date: a.dim_last_received },
-            { wh: "DMU IRS", qty: a.dimapur_irs,  date: null                },
+            { wh: "DMU IRS", qty: a.dimapur_irs,  date: null, forceDead: true },
           ].filter(w => w.qty && w.qty !== "-" && Number(w.qty) > 0)
-           .map(w => ({ wh: w.wh, age: deadAge(w.date) }))
+           .map(w => ({ wh: w.wh, age: w.forceDead ? "Dead" : deadAge(w.date) }))
            .filter(w => w.age != null)
            .sort((a, b) => parseFloat(b.age) - parseFloat(a.age))
           const age = altDeadWh.length > 0
-            ? altDeadWh.map(w => `${w.wh}:${w.age}`).join(" ")
+            ? altDeadWh.filter(w => w.age !== "Dead").map(w => `${w.wh}:${w.age}`).join(" ") || "Dead Stock"
             : null
           const locs = [
             { wh: "DIB",     val: a.dibrugarh   },
@@ -95,12 +104,12 @@ function exportToExcel(results) {
       "DIB Bins":           bins(row.dib_bins),
       "JRH Bins":           bins(row.jor_bins),
       "DMU Bins":           bins(row.dim_bins),
-      "DIB Received":       fmtDate(row.dib_last_received),
-      "DIB Issue":          fmtDate(row.dib_last_issue),
-      "JRH Received":       fmtDate(row.jor_last_received),
-      "JRH Issue":          fmtDate(row.jor_last_issue),
-      "DMU Received":       fmtDate(row.dim_last_received),
-      "DMU Issue":          fmtDate(row.dim_last_issue),
+      "DIB Received":       parseDate(row.dib_last_received),
+      "DIB Issue":          parseDate(row.dib_last_issue),
+      "JRH Received":       parseDate(row.jor_last_received),
+      "JRH Issue":          parseDate(row.jor_last_issue),
+      "DMU Received":       parseDate(row.dim_last_received),
+      "DMU Issue":          parseDate(row.dim_last_issue),
       "NLS":                row.is_nls ? "Yes" : "",
     }
   }
@@ -110,7 +119,7 @@ function exportToExcel(results) {
   const sorted   = [...found, ...notFound]
   const rows     = sorted.map((row, i) => makeRow(row, i))
 
-  const ws = XLSX.utils.json_to_sheet(rows)
+  const ws = XLSX.utils.json_to_sheet(rows, { cellDates: true })
   ws["!cols"] = [
     { wch: 4  }, { wch: 18 }, { wch: 42 }, { wch: 12 },
     { wch: 8  }, { wch: 12 }, { wch: 8  }, { wch: 12 },
@@ -119,6 +128,19 @@ function exportToExcel(results) {
     { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
     { wch: 14 }, { wch: 14 }, { wch: 6  },
   ]
+
+  // Stamp dd-mm-yyyy format on all date columns (P through U), skipping header row
+  const dateCols = ["P", "Q", "R", "S", "T", "U"]
+  const totalRows = rows.length + 1 // +1 for header
+  dateCols.forEach(col => {
+    for (let r = 2; r <= totalRows; r++) {
+      const addr = `${col}${r}`
+      if (ws[addr] && ws[addr].t === "d") {
+        ws[addr].z = "dd-mm-yyyy"
+      }
+    }
+  })
+
   ws["!freeze"] = { xSplit: 2, ySplit: 1, topLeftCell: "C2", activePane: "bottomRight" }
 
   const wb = XLSX.utils.book_new()
@@ -277,9 +299,9 @@ export default function BulkLookup() {
                                   { wh: "DIB",     qty: a.dibrugarh,   date: a.dib_last_received },
                                   { wh: "JRH",     qty: a.jorhat,       date: a.jor_last_received },
                                   { wh: "DMU",     qty: a.dimapur,      date: a.dim_last_received },
-                                  { wh: "DMU IRS", qty: a.dimapur_irs,  date: null                },
+                                  { wh: "DMU IRS", qty: a.dimapur_irs,  date: null, forceDead: true },
                                 ].filter(l => l.qty && l.qty !== "-" && Number(l.qty) > 0)
-                                 .map(l => ({ ...l, age: deadAge(l.date) }))
+                                 .map(l => ({ ...l, age: l.forceDead ? "dead" : deadAge(l.date) }))
                                 const isDead   = locs.some(l => l.age)
                                 const pnClass  = (a.is_nls || isDead) ? "bulk-alt-pn-nls" : "bulk-alt-pn"
                                 return (
