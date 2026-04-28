@@ -32,7 +32,7 @@ function parseDate(s) {
   return isNaN(d.getTime()) ? "" : d
 }
 
-function exportToExcel(results) {
+function exportToExcel(results, mode = "full") {
   const stockNum = (v) => {
     if (!v || v === "-" || v === "--") return ""
     if (v === "Out of Stock" || v === "0") return 0
@@ -45,27 +45,60 @@ function exportToExcel(results) {
   }
 
   const makeRow = (row, i) => {
-    if (!row.found) return {
-      "#": i + 1,
-      "Part Number": /^\d+$/.test(row.part_number) && row.part_number[0] !== "0" ? Number(row.part_number) : row.part_number,
-      "Description": "Not found",
-      "MRP (Rs.)": "",
-      "DIB": "", "DIB Transit": "",
-      "JRH": "", "JRH Transit": "",
-      "DMU": "", "DMU Transit": "",
-      "DMU IRS": "",
-      "Alt. Availability": "",
-      "DIB Bins": "", "JRH Bins": "", "DMU Bins": "",
-      "DIB Received": "", "DIB Issue": "",
-      "JRH Received": "", "JRH Issue": "",
-      "DMU Received": "", "DMU Issue": "",
+    const pn = /^\d+$/.test(row.part_number) && row.part_number[0] !== "0" ? Number(row.part_number) : row.part_number
+    if (!row.found) {
+      const base = { "#": i + 1, "Part Number": pn, "Description": "Not found", "MRP (Rs.)": "", "Discount Code": "", "DIB": "", "JRH": "", "DMU": "", "DMU IRS": "", "Alt. Availability": "" }
+      if (mode === "summary") return base
+      return { ...base, "DIB Transit": "", "JRH Transit": "", "DMU Transit": "", "DIB Bins": "", "JRH Bins": "", "DMU Bins": "", "DIB Received": "", "DIB Issue": "", "JRH Received": "", "JRH Issue": "", "DMU Received": "", "DMU Issue": "", "NLS": "" }
     }
-    const bins = (v) => v ? v.replace(/;/g, ", ") : ""
-    return {
+    const altAvail = (row.alt_details || []).filter(a =>
+        [a.dibrugarh, a.jorhat, a.dimapur, a.dimapur_irs].some(v => v && v !== "-" && Number(v) > 0)
+      ).map(a => {
+        const altDeadWh = [
+          { wh: "DIB",     qty: a.dibrugarh,   date: a.dib_last_received },
+          { wh: "JRH",     qty: a.jorhat,       date: a.jor_last_received },
+          { wh: "DMU",     qty: a.dimapur,      date: a.dim_last_received },
+          { wh: "DMU IRS", qty: a.dimapur_irs,  date: null, forceDead: true },
+        ].filter(w => w.qty && w.qty !== "-" && Number(w.qty) > 0)
+         .map(w => ({ wh: w.wh, age: w.forceDead ? "Dead" : deadAge(w.date) }))
+         .filter(w => w.age != null)
+         .sort((a, b) => parseFloat(b.age) - parseFloat(a.age))
+        const age = altDeadWh.length > 0
+          ? altDeadWh.filter(w => w.age !== "Dead").map(w => `${w.wh}:${w.age}`).join(" ") || "Dead Stock"
+          : null
+        const locs = [
+          { wh: "DIB",     val: a.dibrugarh   },
+          { wh: "JRH",     val: a.jorhat       },
+          { wh: "DMU",     val: a.dimapur      },
+          { wh: "DMU IRS", val: a.dimapur_irs  },
+        ].filter(l => l.val && l.val !== "-" && Number(l.val) > 0)
+          .map(l => `${l.wh}:${Number(l.val).toLocaleString()}`)
+          .join(" ")
+        let label = `${a.part_number} ${locs}`
+        if (a.is_nls) label += " (NLS)"
+        if (age) label += ` (DEAD · ${age})`
+        return label
+      }).join(", ")
+
+    const base = {
       "#":                  i + 1,
-      "Part Number":        /^\d+$/.test(row.part_number) && row.part_number[0] !== "0" ? Number(row.part_number) : row.part_number,
+      "Part Number":        pn,
       "Description":        row.description || "",
       "MRP (Rs.)":          row.mrp ? Math.round(Number(row.mrp)) : "",
+      "Discount Code":      row.discount_code || "",
+      "DIB":                stockNum(row.dibrugarh),
+      "JRH":                stockNum(row.jorhat),
+      "DMU":                stockNum(row.dimapur),
+      "DMU IRS":            stockNum(row.dimapur_irs),
+      "Alt. Availability":  altAvail,
+    }
+    if (mode === "summary") return base
+    return {
+      "#":                  i + 1,
+      "Part Number":        pn,
+      "Description":        row.description || "",
+      "MRP (Rs.)":          row.mrp ? Math.round(Number(row.mrp)) : "",
+      "Discount Code":      row.discount_code || "",
       "DIB":                stockNum(row.dibrugarh),
       "DIB Transit":        trNum(row.tr_dibrugarh),
       "JRH":                stockNum(row.jorhat),
@@ -73,34 +106,7 @@ function exportToExcel(results) {
       "DMU":                stockNum(row.dimapur),
       "DMU Transit":        trNum(row.tr_dimapur),
       "DMU IRS":            stockNum(row.dimapur_irs),
-      "Alt. Availability":  (row.alt_details || []).filter(a =>
-          [a.dibrugarh, a.jorhat, a.dimapur, a.dimapur_irs].some(v => v && v !== "-" && Number(v) > 0)
-        ).map(a => {
-          const altDeadWh = [
-            { wh: "DIB",     qty: a.dibrugarh,   date: a.dib_last_received },
-            { wh: "JRH",     qty: a.jorhat,       date: a.jor_last_received },
-            { wh: "DMU",     qty: a.dimapur,      date: a.dim_last_received },
-            { wh: "DMU IRS", qty: a.dimapur_irs,  date: null, forceDead: true },
-          ].filter(w => w.qty && w.qty !== "-" && Number(w.qty) > 0)
-           .map(w => ({ wh: w.wh, age: w.forceDead ? "Dead" : deadAge(w.date) }))
-           .filter(w => w.age != null)
-           .sort((a, b) => parseFloat(b.age) - parseFloat(a.age))
-          const age = altDeadWh.length > 0
-            ? altDeadWh.filter(w => w.age !== "Dead").map(w => `${w.wh}:${w.age}`).join(" ") || "Dead Stock"
-            : null
-          const locs = [
-            { wh: "DIB",     val: a.dibrugarh   },
-            { wh: "JRH",     val: a.jorhat       },
-            { wh: "DMU",     val: a.dimapur      },
-            { wh: "DMU IRS", val: a.dimapur_irs  },
-          ].filter(l => l.val && l.val !== "-" && Number(l.val) > 0)
-            .map(l => `${l.wh}:${Number(l.val).toLocaleString()}`)
-            .join(" ")
-          let label = `${a.part_number} ${locs}`
-          if (a.is_nls) label += " (NLS)"
-          if (age) label += ` (DEAD · ${age})`
-          return label
-        }).join(", "),
+      "Alt. Availability":  altAvail,
       "DIB Bins":           bins(row.dib_bins),
       "JRH Bins":           bins(row.jor_bins),
       "DMU Bins":           bins(row.dim_bins),
@@ -114,39 +120,52 @@ function exportToExcel(results) {
     }
   }
 
-  const found    = results.filter(r => r.found)
-  const notFound = results.filter(r => !r.found)
-  const sorted   = [...found, ...notFound]
-  const rows     = sorted.map((row, i) => makeRow(row, i))
+  const rows = results.map((row, i) => makeRow(row, i))
 
   const ws = XLSX.utils.json_to_sheet(rows, { cellDates: true })
-  ws["!cols"] = [
-    { wch: 4  }, { wch: 18 }, { wch: 42 }, { wch: 12 },
-    { wch: 8  }, { wch: 12 }, { wch: 8  }, { wch: 12 },
-    { wch: 8  }, { wch: 12 }, { wch: 8  }, { wch: 52 },
-    { wch: 10 }, { wch: 10 }, { wch: 10 },
-    { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
-    { wch: 14 }, { wch: 14 }, { wch: 6  },
-  ]
 
-  // Stamp dd-mm-yyyy format on all date columns (P through U), skipping header row
-  const dateCols = ["P", "Q", "R", "S", "T", "U"]
-  const totalRows = rows.length + 1 // +1 for header
-  dateCols.forEach(col => {
-    for (let r = 2; r <= totalRows; r++) {
-      const addr = `${col}${r}`
-      if (ws[addr] && ws[addr].t === "d") {
-        ws[addr].z = "dd-mm-yyyy"
+  if (mode === "summary") {
+    ws["!cols"] = [
+      { wch: 4  }, { wch: 18 }, { wch: 42 }, { wch: 12 }, { wch: 10 },
+      { wch: 8  }, { wch: 8  }, { wch: 8  }, { wch: 8  }, { wch: 52 },
+    ]
+  } else {
+    ws["!cols"] = [
+      { wch: 4  }, { wch: 18 }, { wch: 42 }, { wch: 12 }, { wch: 10 },
+      { wch: 8  }, { wch: 12 }, { wch: 8  }, { wch: 12 },
+      { wch: 8  }, { wch: 12 }, { wch: 8  }, { wch: 52 },
+      { wch: 10 }, { wch: 10 }, { wch: 10 },
+      { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
+      { wch: 14 }, { wch: 14 }, { wch: 6  },
+    ]
+  }
+
+  // Stamp integer format on part number column (B) to prevent scientific notation
+  const totalRows = rows.length + 1
+  for (let r = 2; r <= totalRows; r++) {
+    const addr = `B${r}`
+    if (ws[addr] && ws[addr].t === "n") ws[addr].z = "0"
+  }
+
+  // Stamp dd-mm-yyyy on date columns (full export only)
+  // Full col order: A# B:PN C:Desc D:MRP E:Disc F:DIB G:DIBTr H:JRH I:JRHTr J:DMU K:DMUTr L:IRS M:Alt N:DIBBins O:JRHBins P:DMUBins Q:DIBRec R:DIBIss S:JRHRec T:JRHIss U:DMURec V:DMUIss W:NLS
+  if (mode === "full") {
+    const dateCols = ["Q", "R", "S", "T", "U", "V"]
+    dateCols.forEach(col => {
+      for (let r = 2; r <= totalRows; r++) {
+        const addr = `${col}${r}`
+        if (ws[addr] && ws[addr].t === "d") ws[addr].z = "dd-mm-yyyy"
       }
-    }
-  })
+    })
+  }
 
   ws["!freeze"] = { xSplit: 2, ySplit: 1, topLeftCell: "C2", activePane: "bottomRight" }
 
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, "Bulk Lookup")
-  const now = new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }).replace(/\//g, "-")
-  XLSX.writeFile(wb, `TGP_Bulk_Lookup_${now}.xlsx`)
+  const now    = new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }).replace(/\//g, "-")
+  const suffix = mode === "summary" ? "Stock" : "Full"
+  XLSX.writeFile(wb, `TGP_Bulk_${suffix}_${now}.xlsx`)
 }
 
 export default function BulkLookup() {
@@ -176,10 +195,8 @@ export default function BulkLookup() {
   const handleClear   = () => { setInput(""); setResults(null); setError(null) }
   const handleKeyDown = (e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleLookup() }
 
-  // found first (input order preserved), not-found sunk to bottom
-  const sorted = results
-    ? [...results.filter(r => r.found), ...results.filter(r => !r.found)]
-    : null
+  // preserve input order — not-found rows stay in place
+  const sorted = results ?? null
 
   const showIrs = sorted
     ? sorted.some(r => r.found && r.dimapur_irs && r.dimapur_irs !== "-")
@@ -206,7 +223,13 @@ export default function BulkLookup() {
           </button>
           <button className="btn-clear" onClick={handleClear}>Clear</button>
           {results && (
-            <button className="btn-export" onClick={() => exportToExcel(results)}>↓ Export .xlsx</button>
+            <div className="export-wrap">
+              <button className="btn-export">↓ Export .xlsx</button>
+              <div className="export-menu">
+                <button className="export-item" onClick={() => exportToExcel(results, "summary")}>Export Stock</button>
+                <button className="export-item" onClick={() => exportToExcel(results, "full")}>Export All</button>
+              </div>
+            </div>
           )}
           {partList.length > 0 && (
             <span className="bulk-count">{partList.length} part{partList.length !== 1 ? "s" : ""}</span>
