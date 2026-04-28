@@ -43,6 +43,7 @@ function exportToExcel(results, mode = "full") {
     if (!v || v === "-" || v === "--") return ""
     const n = Number(v); return n > 0 ? n : ""
   }
+  const bins = (v) => v ? v.replace(/;/g, ", ") : ""
 
   const makeRow = (row, i) => {
     const pn = /^\d+$/.test(row.part_number) && row.part_number[0] !== "0" ? Number(row.part_number) : row.part_number
