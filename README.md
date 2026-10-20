@@ -54,8 +54,9 @@ Stack: React + Vite (frontend, Render static site) · FastAPI (backend, Render w
 2. Open `tgp_refresh.py` and set:
    - `DATABASE_URL` — the Neon connection string
    - `EXPORT_FOLDER` — where the Tata exports are saved (default `C:\TataExports`)
-3. The two Google Sheets (`ALT_SHEET_ID` for alternate parts, `NLS_SHEET_ID` for No Longer Serviced parts)
-   are read directly by the script. They must stay shareable by link ("Anyone with the link can view").
+3. The three Google Sheets (`ALT_SHEET_ID` for alternate parts, `NLS_SHEET_ID` for No Longer Serviced parts,
+   `BARREL_SHEET_ID` for barrel MRPs) are read directly by the script. They must stay shareable by link
+   ("Anyone with the link can view").
 
 ---
 
@@ -79,6 +80,30 @@ TataExports/
 Then double-click `tgp_refresh.py` and wait for "REFRESH COMPLETE" (a few minutes).
 The script rebuilds `tgp_parts` and `part_alternates` from scratch and adds a row to `tgp_meta`.
 While it runs, lookups wait until it finishes, then show the new data.
+
+---
+
+## BARRELS (TMGO oils)
+
+Siebel stores barrel quantities in millilitres and the Tata price list gives their MRP per ml. The refresh
+script converts them so the site shows barrels:
+
+- **Which parts:** part number starts with `TMGO` and the price-list MRP is above 0 and below 10.
+- **Quantity:** stock and in-transit are divided by 210,000 (so 420,000 ml shows as 2; partial barrels show
+  up to 2 decimals, e.g. 0.24).
+- **MRP:** the true barrel MRP from the **Barrel MRP sheet** (`BARREL_SHEET_ID`) — header row, part number in
+  column A, barrel MRP in column B. There is no calculated fallback.
+- **Checks:** before touching the database, the script stops with a numbered list of problems if
+  - a barrel part is not in the sheet,
+  - a sheet MRP no longer matches the Tata price list (sheet MRP ÷ 210,000 must equal the price list's per-ml
+    MRP to 2 decimals — this catches a price update you forgot to copy into the sheet),
+  - a part is listed twice, has a non-numeric MRP, or is not a barrel in the price list (usually a typo).
+
+  Fix the sheet and run the script again. Nothing is written to the database when the check fails.
+- **No longer serviced:** a barrel that is in the NLS sheet is exempt from the checks. It shows the sheet MRP
+  if the Barrel sheet has one, otherwise a dash.
+- **Limit:** the price list rounds per-ml prices to 2 decimals, so a barrel price change smaller than about
+  Rs. 1,050 cannot be detected.
 
 ---
 

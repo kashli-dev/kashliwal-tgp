@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react"
 import { fetchPart, fetchSearch, errorMessage } from "../api"
 import StockRow from "../components/StockRow"
 import LastUpdated from "../components/LastUpdated"
-import { deadAge } from "../utils"
+import { deadAge, cleanPart, hasStock } from "../utils"
 
 export default function SingleLookup() {
   const [query, setQuery]         = useState("")
@@ -12,6 +12,7 @@ export default function SingleLookup() {
   const [retrying, setRetrying]   = useState(false)
   const [suggestions, setSuggestions] = useState([])
   const [showDrop, setShowDrop]   = useState(false)
+  const [activeIdx, setActiveIdx] = useState(-1)   // keyboard/hover highlight in the suggestions list
   const timerRef  = useRef(null)
   const wrapRef   = useRef(null)
 
@@ -31,7 +32,7 @@ export default function SingleLookup() {
   }, [])
 
   const lookup = useCallback(async (val) => {
-    const q = val.trim()
+    const q = cleanPart(val)
     if (!q) { setResult(null); setError(null); return }
     setLoading(true); setError(null); setRetrying(false); setShowDrop(false)
     try {
@@ -46,7 +47,7 @@ export default function SingleLookup() {
   }, [])
 
   const fetchSuggestions = useCallback(async (val) => {
-    const q = val.trim()
+    const q = cleanPart(val)
     if (q.length < 2) { setSuggestions([]); setShowDrop(false); return }
     try {
       const data = await fetchSearch(q)
@@ -56,6 +57,7 @@ export default function SingleLookup() {
         return
       }
       setSuggestions(data || [])
+      setActiveIdx(-1)
       setShowDrop((data || []).length > 0)
     } catch {
       setSuggestions([]); setShowDrop(false)
@@ -66,6 +68,7 @@ export default function SingleLookup() {
     const val = e.target.value
     setQuery(val)
     setResult(null)
+    setActiveIdx(-1)
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => fetchSuggestions(val), 300)
   }
@@ -73,8 +76,24 @@ export default function SingleLookup() {
   const isWildcard = (val) => val.includes("*")
 
   const handleKey = (e) => {
+    const listOpen = showDrop && suggestions.length > 0
+    if (e.key === "ArrowDown" && listOpen) {
+      e.preventDefault()
+      setActiveIdx(i => Math.min(i + 1, suggestions.length - 1))
+      return
+    }
+    if (e.key === "ArrowUp" && listOpen) {
+      e.preventDefault()
+      setActiveIdx(i => Math.max(i - 1, -1))
+      return
+    }
     if (e.key === "Enter") {
       clearTimeout(timerRef.current)
+      if (listOpen && activeIdx >= 0 && suggestions[activeIdx]) {
+        // A suggestion is highlighted — pick it
+        handleSelect(suggestions[activeIdx].part_number)
+        return
+      }
       if (isWildcard(query)) {
         // Wildcard pattern — show suggestions instead of exact lookup
         fetchSuggestions(query)
@@ -85,12 +104,14 @@ export default function SingleLookup() {
     }
     if (e.key === "Escape") {
       setShowDrop(false)
+      setActiveIdx(-1)
     }
   }
 
   const handleSelect = (partNumber) => {
     setQuery(partNumber)
     setSuggestions([])
+    setActiveIdx(-1)
     setShowDrop(false)
     clearTimeout(timerRef.current)
     lookup(partNumber)
@@ -99,13 +120,15 @@ export default function SingleLookup() {
   // Highlight the matched portion in the part number (skipped for wildcard queries)
   const highlight = (text, q) => {
     if (!q || isWildcard(q)) return text
-    const idx = text.toUpperCase().indexOf(q.trim().toUpperCase())
+    const cq = cleanPart(q)
+    if (!cq) return text
+    const idx = text.toUpperCase().indexOf(cq.toUpperCase())
     if (idx === -1) return text
     return (
       <>
         {text.slice(0, idx)}
-        <mark className="ac-mark">{text.slice(idx, idx + q.trim().length)}</mark>
-        {text.slice(idx + q.trim().length)}
+        <mark className="ac-mark">{text.slice(idx, idx + cq.length)}</mark>
+        {text.slice(idx + cq.length)}
       </>
     )
   }
@@ -116,6 +139,12 @@ export default function SingleLookup() {
         return sum + (v && v !== "-" && v !== "Out of Stock" ? Number(v) : 0)
       }, 0)
     : 0
+
+  // Total in transit across DIB, JRH and DMU (IRS has no in-transit figure)
+  const totalTransit = result?.found
+    ? ["tr_dibrugarh","tr_jorhat","tr_dimapur"].reduce((sum, k) => sum + (hasStock(result[k]) ? Number(result[k]) : 0), 0)
+    : 0
+  const fmtNum = (n) => n.toLocaleString(undefined, { maximumFractionDigits: 2 })
 
   return (
     <div>
@@ -138,7 +167,8 @@ export default function SingleLookup() {
             {suggestions.map((s, i) => (
               <div
                 key={i}
-                className="ac-item"
+                className={`ac-item${i === activeIdx ? " active" : ""}`}
+                onMouseMove={() => { if (i !== activeIdx) setActiveIdx(i) }}
                 onMouseDown={(e) => { e.preventDefault(); handleSelect(s.part_number) }}
                 onTouchEnd={(e) => { e.preventDefault(); handleSelect(s.part_number) }}
               >
@@ -277,14 +307,17 @@ export default function SingleLookup() {
               <StockRow label="DIB" stock={result.dibrugarh} transit={result.tr_dibrugarh} bins={result.dib_bins ? result.dib_bins.split(";") : []} lastReceived={result.dib_last_received} />
               <StockRow label="JRH" stock={result.jorhat}    transit={result.tr_jorhat}    bins={result.jor_bins ? result.jor_bins.split(";") : []} lastReceived={result.jor_last_received} />
               <StockRow label="DMU" stock={result.dimapur}   transit={result.tr_dimapur}   bins={result.dim_bins ? result.dim_bins.split(";") : []} lastReceived={result.dim_last_received} />
-              {result.dimapur_irs && result.dimapur_irs !== "-" && (
+              {hasStock(result.dimapur_irs) && (
                 <StockRow label="DMU IRS" stock={result.dimapur_irs} transit={null} bins={result.irs_bins ? result.irs_bins.split(";") : []} lastReceived={null} forceDead />
               )}
             </div>
 
             <div className="stock-total">
               <span>Total</span>
-              <span className="stock-total-val">{total.toLocaleString()}</span>
+              <span className="stock-total-right">
+                <span className="stock-total-val">{fmtNum(total)}</span>
+                {totalTransit > 0 && <span className="stock-transit">{fmtNum(totalTransit)} In Transit</span>}
+              </span>
             </div>
 
             {altEntries.length > 0 && (

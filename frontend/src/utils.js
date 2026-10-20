@@ -1,3 +1,14 @@
+// Remove every blank from a part number — spaces, tabs, non-breaking and zero-width
+// spaces that sneak in when copy-pasting. Real Tata part numbers never contain blanks.
+export function cleanPart(s) {
+  return (s || "").replace(/[\s\u200B-\u200D\u2060\uFEFF]/g, "")
+}
+
+// True when a stock value is a real quantity above zero ("-" and "Out of Stock" are not)
+export function hasStock(v) {
+  return !!v && v !== "-" && v !== "Out of Stock" && Number(v) > 0
+}
+
 // Convert yyyy-mm-dd → dd-mm-yyyy for display
 export function fmtDate(s) {
   if (!s) return ""

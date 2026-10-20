@@ -296,6 +296,8 @@ body {
   align-items: center;
 }
 .stock-total-val { font-family: var(--mono); color: var(--blue); font-size: 14px; }
+.stock-total-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.stock-total-right .stock-transit { margin-left: 0; }
 
 /* ── ALT NOTE ── */
 .alt-note {
@@ -859,6 +861,7 @@ body {
 }
 .ac-item:last-of-type { border-bottom: none; }
 .ac-item:active { background: var(--blue-dim); }
+.ac-item.active { background: var(--blue-dim); }
 .ac-part {
   font-family: var(--mono);
   font-size: 13px;

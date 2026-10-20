@@ -2,7 +2,7 @@ import { useState } from "react"
 import { fetchBulk, errorMessage } from "../api"
 import LastUpdated from "../components/LastUpdated"
 import * as XLSX from "xlsx"
-import { deadAge } from "../utils"
+import { deadAge, cleanPart, hasStock } from "../utils"
 
 function stockVal(val) {
   if (!val || val === "-" || val === "--") return { text: "—", cls: "na" }
@@ -32,7 +32,9 @@ function parseDate(s) {
   return isNaN(d.getTime()) ? "" : d
 }
 
-function exportToExcel(results, mode = "full") {
+// DMU IRS is included only when at least one found part has IRS stock
+export function buildWorkbook(results, mode = "full") {
+  const includeIrs = results.some(r => r.found && hasStock(r.dimapur_irs))
   const stockNum = (v) => {
     if (!v || v === "-" || v === "--") return ""
     if (v === "Out of Stock" || v === "0") return 0
@@ -44,13 +46,14 @@ function exportToExcel(results, mode = "full") {
     const n = Number(v); return n > 0 ? n : ""
   }
   const bins = (v) => v ? v.replace(/;/g, ", ") : ""
+  const finish = (o) => { if (!includeIrs) delete o["DMU IRS"]; return o }
 
   const makeRow = (row, i) => {
     const pn = /^\d+$/.test(row.part_number) && row.part_number[0] !== "0" ? Number(row.part_number) : row.part_number
     if (!row.found) {
       const base = { "#": i + 1, "Part Number": pn, "Description": "Not found", "MRP (Rs.)": "", "Discount Code": "", "DIB": "", "JRH": "", "DMU": "", "DMU IRS": "", "Alt. Availability": "" }
-      if (mode === "summary") return base
-      return { ...base, "DIB Transit": "", "JRH Transit": "", "DMU Transit": "", "DIB Bins": "", "JRH Bins": "", "DMU Bins": "", "DIB Received": "", "DIB Issue": "", "JRH Received": "", "JRH Issue": "", "DMU Received": "", "DMU Issue": "", "NLS": "" }
+      if (mode === "summary") return finish(base)
+      return finish({ ...base, "DIB Transit": "", "JRH Transit": "", "DMU Transit": "", "DIB Bins": "", "JRH Bins": "", "DMU Bins": "", "DIB Received": "", "DIB Issue": "", "JRH Received": "", "JRH Issue": "", "DMU Received": "", "DMU Issue": "", "NLS": "" })
     }
     const altAvail = (row.alt_details || []).filter(a =>
         [a.dibrugarh, a.jorhat, a.dimapur, a.dimapur_irs].some(v => v && v !== "-" && Number(v) > 0)
@@ -93,8 +96,8 @@ function exportToExcel(results, mode = "full") {
       "DMU IRS":            stockNum(row.dimapur_irs),
       "Alt. Availability":  altAvail,
     }
-    if (mode === "summary") return base
-    return {
+    if (mode === "summary") return finish(base)
+    return finish({
       "#":                  i + 1,
       "Part Number":        pn,
       "Description":        row.description || "",
@@ -118,41 +121,40 @@ function exportToExcel(results, mode = "full") {
       "DMU Received":       parseDate(row.dim_last_received),
       "DMU Issue":          parseDate(row.dim_last_issue),
       "NLS":                row.is_nls ? "Yes" : "",
-    }
+    })
   }
 
   const rows = results.map((row, i) => makeRow(row, i))
+  const headers = rows.length ? Object.keys(rows[0]) : []
 
   const ws = XLSX.utils.json_to_sheet(rows, { cellDates: true })
 
-  if (mode === "summary") {
-    ws["!cols"] = [
-      { wch: 4  }, { wch: 18 }, { wch: 42 }, { wch: 12 }, { wch: 10 },
-      { wch: 8  }, { wch: 8  }, { wch: 8  }, { wch: 8  }, { wch: 52 },
-    ]
-  } else {
-    ws["!cols"] = [
-      { wch: 4  }, { wch: 18 }, { wch: 42 }, { wch: 12 }, { wch: 10 },
-      { wch: 8  }, { wch: 12 }, { wch: 8  }, { wch: 12 },
-      { wch: 8  }, { wch: 12 }, { wch: 8  }, { wch: 52 },
-      { wch: 10 }, { wch: 10 }, { wch: 10 },
-      { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
-      { wch: 14 }, { wch: 14 }, { wch: 6  },
-    ]
+  const WIDTHS = {
+    "#": 4, "Part Number": 18, "Description": 42, "MRP (Rs.)": 12, "Discount Code": 10,
+    "DIB": 8, "DIB Transit": 12, "JRH": 8, "JRH Transit": 12, "DMU": 8, "DMU Transit": 12, "DMU IRS": 8,
+    "Alt. Availability": 52, "DIB Bins": 10, "JRH Bins": 10, "DMU Bins": 10,
+    "DIB Received": 14, "DIB Issue": 14, "JRH Received": 14, "JRH Issue": 14,
+    "DMU Received": 14, "DMU Issue": 14, "NLS": 6,
   }
+  ws["!cols"] = headers.map(h => ({ wch: WIDTHS[h] || 10 }))
 
-  // Stamp integer format on part number column (B) to prevent scientific notation
+  // Stamp integer format on the part number column to prevent scientific notation
   const totalRows = rows.length + 1
-  for (let r = 2; r <= totalRows; r++) {
-    const addr = `B${r}`
-    if (ws[addr] && ws[addr].t === "n") ws[addr].z = "0"
+  const pnIdx = headers.indexOf("Part Number")
+  if (pnIdx >= 0) {
+    const pnCol = XLSX.utils.encode_col(pnIdx)
+    for (let r = 2; r <= totalRows; r++) {
+      const addr = `${pnCol}${r}`
+      if (ws[addr] && ws[addr].t === "n") ws[addr].z = "0"
+    }
   }
 
-  // Stamp dd-mm-yyyy on date columns (full export only)
-  // Full col order: A# B:PN C:Desc D:MRP E:Disc F:DIB G:DIBTr H:JRH I:JRHTr J:DMU K:DMUTr L:IRS M:Alt N:DIBBins O:JRHBins P:DMUBins Q:DIBRec R:DIBIss S:JRHRec T:JRHIss U:DMURec V:DMUIss W:NLS
+  // Stamp dd-mm-yyyy on the Received / Issue date columns (full export only).
+  // Column letters come from the headers because the DMU IRS column may or may not be there.
   if (mode === "full") {
-    const dateCols = ["Q", "R", "S", "T", "U", "V"]
-    dateCols.forEach(col => {
+    headers.forEach((h, idx) => {
+      if (!/ (Received|Issue)$/.test(h)) return
+      const col = XLSX.utils.encode_col(idx)
       for (let r = 2; r <= totalRows; r++) {
         const addr = `${col}${r}`
         if (ws[addr] && ws[addr].t === "d") ws[addr].z = "dd-mm-yyyy"
@@ -164,6 +166,11 @@ function exportToExcel(results, mode = "full") {
 
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, "Bulk Lookup")
+  return wb
+}
+
+function exportToExcel(results, mode = "full") {
+  const wb = buildWorkbook(results, mode)
   const now    = new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }).replace(/\//g, "-")
   const suffix = mode === "summary" ? "Stock" : "Full"
   XLSX.writeFile(wb, `TGP_Bulk_${suffix}_${now}.xlsx`)
@@ -177,7 +184,7 @@ export default function BulkLookup() {
   const [retrying, setRetrying] = useState(false)
   const [showBins, setShowBins] = useState(false)
 
-  const partList = input.split(/[\n,]+/).map(p => p.trim()).filter(Boolean)
+  const partList = input.split(/[\n,]+/).map(cleanPart).filter(Boolean)
 
   const handleLookup = async () => {
     if (!partList.length) return
@@ -204,7 +211,7 @@ export default function BulkLookup() {
   const sorted = results ?? null
 
   const showIrs = sorted
-    ? sorted.some(r => r.found && r.dimapur_irs && r.dimapur_irs !== "-")
+    ? sorted.some(r => r.found && hasStock(r.dimapur_irs))
     : false
 
   return (
@@ -213,7 +220,7 @@ export default function BulkLookup() {
         <div className="bulk-input-wrap">
           <textarea
             className="bulk-input"
-            placeholder="Part numbers — one per line or comma-separated"
+            placeholder="New part number per line, or part numbers separated by commas"
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}

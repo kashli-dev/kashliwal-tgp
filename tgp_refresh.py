@@ -16,6 +16,15 @@ FOLDER STRUCTURE EXPECTED:
       jorhat_transit.csv
     output__22_.HTML  (price list — must be HTML export; CSV not accepted)
 
+BARRELS (TMGO oils):
+  Siebel stores barrel quantities in millilitres and the price list gives MRP per ml.
+  210,000 ml = 1 barrel. A part is a barrel if its number starts with TMGO and its
+  price-list MRP is above 0 and below 10. Barrel MRPs come from the Barrel MRP Google
+  Sheet (BARREL_SHEET_ID: part number in column A, MRP in column B, header row).
+  The script stops before touching the database if a barrel is missing from the
+  sheet or its sheet MRP no longer matches the Tata price list. Barrels that are in
+  the NLS sheet are exempt from that check.
+
 SETUP (one-time):
   pip install pandas openpyxl psycopg2-binary requests lxml
 """
@@ -34,8 +43,8 @@ from pathlib import Path
 warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
-# Paste your Render PostgreSQL connection string here:
-DATABASE_URL = "postgresql://user:password@host/dbname"
+# Paste your Neon PostgreSQL connection string here (the real one must never be committed to GitHub):
+DATABASE_URL = "PASTE_YOUR_NEON_CONNECTION_STRING_HERE"
 
 # Folder where your Siebel exports live:
 EXPORT_FOLDER = r"C:\TataExports"
@@ -44,6 +53,8 @@ EXPORT_FOLDER = r"C:\TataExports"
 ALT_SHEET_ID = "16U-Mxf-rpsDe1VWstOihkO46tkvBOX0HE_nX6lPcL7Y"
 # Google Sheet ID for NLS (No Longer Serviced) parts:
 NLS_SHEET_ID = "1FwL6bSLZfHRgoX5FkEPxB_Z9r6DU8Q_nJ3QkdyuM_X4"
+# Google Sheet ID for Barrel MRPs (TMGO barrels): col A = part number, col B = MRP, header row
+BARREL_SHEET_ID = "1WCf2K8_wEl32nCNojVPSdMUdtI7xLod0aerbBLvE5_A"
 # ──────────────────────────────────────────────────────────────────────────────
 
 
@@ -92,6 +103,113 @@ def find_price_list(folder):
         f"No HTML price list found in {folder}\n"
         f"   Export the price list as HTML from Siebel (not CSV)."
     )
+
+
+# ── BARREL HELPERS ────────────────────────────────────────────────────────────
+BARREL_ML         = 210000   # 1 barrel = 210,000 ml
+BARREL_PREFIX     = "TMGO"
+BARREL_MRP_BELOW  = 10       # barrel = TMGO part with price-list MRP above 0 and below this (per-ml price)
+
+class BarrelPriceError(Exception):
+    pass
+
+def is_barrel(part, mrp):
+    return (str(part).upper().startswith(BARREL_PREFIX)
+            and mrp is not None and 0 < mrp < BARREL_MRP_BELOW)
+
+def to_barrels(ml):
+    """Millilitres -> barrels (2 decimals). A non-zero quantity never rounds down to 0."""
+    if ml <= 0:
+        return 0
+    return max(round(ml / BARREL_ML, 2), 0.01)
+
+def fmt_qty(q):
+    """Whole numbers as-is; barrel fractions without trailing zeros (2, 0.24, 1.5)."""
+    if isinstance(q, float):
+        return f"{q:.2f}".rstrip('0').rstrip('.')
+    return str(q)
+
+def parse_sheet_mrp(v):
+    """Barrel sheet MRP as a positive float, or None if it is not a valid number."""
+    s = re.sub(r'(?i)^rs\.?', '', str(v).strip()).replace('\u20b9', '').replace(',', '').strip()
+    try:
+        n = float(s)
+    except ValueError:
+        return None
+    return n if n > 0 and n == n and n != float('inf') else None
+
+def check_barrel_sheet(price_map, nls_set, sheet_df):
+    """
+    Verify the Barrel MRP sheet against the Tata price list.
+    Returns {barrel part: barrel MRP (None for an NLS barrel that is not in the sheet)}.
+    Raises BarrelPriceError listing EVERY problem found.
+    """
+    problems = []   # (part, message)
+    sheet = {}      # part -> MRP (None = invalid value)
+    rows_seen = {}  # part -> list of raw MRP values, to catch duplicates
+
+    if sheet_df.shape[1] < 2:
+        raise BarrelPriceError(
+            "\u274c BARREL PRICE CHECK FAILED \u2014 nothing was written to the database.\n\n"
+            "The Barrel MRP sheet needs two columns: part number (A) and MRP (B).")
+
+    for _, row in sheet_df.iterrows():
+        raw_pn, raw_mrp = row.iloc[0], row.iloc[1]
+        if pd.isna(raw_pn) and pd.isna(raw_mrp):
+            continue
+        pn = re.sub(r'\s+', '', str(raw_pn)).upper() if pd.notna(raw_pn) else ''
+        if not pn:
+            problems.append(("", f"a sheet row has an MRP ({raw_mrp}) but no part number."))
+            continue
+        rows_seen.setdefault(pn, []).append(raw_mrp)
+        sheet[pn] = parse_sheet_mrp(raw_mrp) if pd.notna(raw_mrp) else None
+        if sheet[pn] is None:
+            shown = "blank" if pd.isna(raw_mrp) else f"'{raw_mrp}'"
+            problems.append((pn, f"MRP in the sheet is not a valid number ({shown})."))
+
+    for pn, vals in rows_seen.items():
+        if len(vals) > 1:
+            problems.append((pn, f"listed {len(vals)} times in the sheet ({', '.join(str(v) for v in vals)}). Keep one row."))
+
+    candidates = {p: v['MRP'] for p, v in price_map.items() if is_barrel(p, v['MRP'])}
+    result, skipped_nls = {}, 0
+
+    for p, per_ml in sorted(candidates.items()):
+        is_nls = p in nls_set
+        if is_nls:
+            skipped_nls += 1
+        if p not in sheet:
+            if not is_nls:
+                problems.append((p, "not in the Barrel MRP sheet. Add its barrel MRP."))
+            result[p] = None
+            continue
+        value = sheet[p]
+        result[p] = value
+        if value is None or is_nls:
+            continue
+        if abs(value / BARREL_ML - per_ml) > 0.005 + 1e-9:
+            lo, hi = (per_ml - 0.005) * BARREL_ML, (per_ml + 0.005) * BARREL_ML
+            problems.append((p,
+                f"sheet says Rs. {value:,.0f} (Rs. {value / BARREL_ML:.4f}/ml) but the Tata price list says "
+                f"Rs. {per_ml:.2f}/ml (a barrel MRP of about Rs. {lo:,.0f} to {hi:,.0f}). Update the sheet."))
+
+    for pn in sorted(sheet):
+        if pn not in candidates:
+            problems.append((pn, "is in the sheet but is not a barrel in the Tata price list "
+                                 "(TMGO part with a per-ml MRP). Check the part number or remove the row."))
+
+    if problems:
+        problems.sort(key=lambda x: x[0])
+        width = max(len(p) for p, _ in problems)
+        lines = [f"{i:>2}. {p.ljust(width)}  \u2014 {msg}" if p else f"{i:>2}. {msg}"
+                 for i, (p, msg) in enumerate(problems, 1)]
+        raise BarrelPriceError(
+            "\u274c BARREL PRICE CHECK FAILED \u2014 nothing was written to the database.\n\n"
+            + "\n".join(lines)
+            + "\n\nFix the Barrel MRP Google Sheet, then run the script again.")
+
+    log(f"Barrel MRP check passed: {len(candidates)} barrel parts ({skipped_nls} NLS, not checked)")
+    return result
 
 
 def main():
@@ -185,6 +303,18 @@ def main():
             dc = str(r.get('Discount Code (CVBU)','') or '').strip()
             price_map[p] = {'Desc': str(r['Part Description']).strip(), 'MRP': r['MRP'], 'DC': dc}
 
+    # ── Barrels: check the Barrel MRP sheet against the price list, then use the sheet MRPs.
+    # Runs before anything is written to the database; stops with a clear message on any problem.
+    log("Loading barrel MRP sheet...")
+    barrel_url = f"https://docs.google.com/spreadsheets/d/{BARREL_SHEET_ID}/export?format=xlsx"
+    barrel_resp = requests.get(barrel_url, timeout=30)
+    barrel_resp.raise_for_status()
+    barrel_df = pd.read_excel(io.BytesIO(barrel_resp.content), dtype=str)
+    barrel_mrp = check_barrel_sheet(price_map, nls_set, barrel_df)
+    for p, mrp in barrel_mrp.items():
+        price_map[p]['MRP'] = mrp      # None (NLS barrel not in the sheet) shows as a dash
+    barrel_parts = set(barrel_mrp)
+
     def desc_map(df):
         d = {}
         for _, r in df.iterrows():
@@ -218,6 +348,13 @@ def main():
     map_irs = inv_map(dim_irs)
     map_jor = inv_map(jor)
 
+    # Barrels: Siebel quantities are in ml -> convert stock and in-transit to barrels
+    for qty_map in (map_dib, map_dim, map_irs, map_jor, tr_dib, tr_dim, tr_jor):
+        for p in barrel_parts:
+            if p in qty_map:
+                qty_map[p] = to_barrels(qty_map[p])
+    log(f"{len(barrel_parts)} barrel parts: MRP from sheet, quantities converted to barrels")
+
     recv_dib = date_map(dib,     'Last Received Date')
     recv_jor = date_map(jor,     'Last Received Date')
     recv_dim = date_map(dim_reg, 'Last Received Date')
@@ -227,15 +364,14 @@ def main():
 
     def bins_map(df):
         """Returns dict of part# -> semicolon-separated unique bin locations.
-        Skips any location value containing ':' (used as a hack for alternate part notes)
-        and any purely numeric value (not a real bin)."""
+        Skips any location value containing ':' (used as a hack for alternate part notes)."""
         d = {}
         for _, r in df.iterrows():
             p = r['Part #']
             locs = []
             for col in ['Location 1', 'Location 2', 'Location 3']:
                 v = str(r.get(col, '') or '').strip()
-                if v and v != 'nan' and ':' not in v and not re.fullmatch(r'\d+', v):
+                if v and v != 'nan' and ':' not in v:
                     locs.append(v)
             if locs:
                 existing = d.get(p, [])
@@ -258,11 +394,11 @@ def main():
 
     def stock_label(part, qty_map, parts_in_loc):
         if part not in parts_in_loc: return '-'
-        return 'Out of Stock' if qty_map.get(part,0)==0 else str(qty_map.get(part,0))
+        return 'Out of Stock' if qty_map.get(part,0)==0 else fmt_qty(qty_map.get(part,0))
 
     def transit_label(part, tr_map):
         qty = tr_map.get(part, 0)
-        return str(qty) if qty > 0 else '-'
+        return fmt_qty(qty) if qty > 0 else '-'
 
     def alt_stock_note(part):
         available = []
@@ -272,10 +408,10 @@ def main():
             q_dim = map_dim.get(alt,0)
             q_irs = map_irs.get(alt,0)
             locs = []
-            if q_dib>0: locs.append(f'DIB:{q_dib}')
-            if q_jor>0: locs.append(f'JRH:{q_jor}')
-            if q_dim>0: locs.append(f'DMU:{q_dim}')
-            if q_irs>0: locs.append(f'DMU IRS:{q_irs}')
+            if q_dib>0: locs.append(f'DIB:{fmt_qty(q_dib)}')
+            if q_jor>0: locs.append(f'JRH:{fmt_qty(q_jor)}')
+            if q_dim>0: locs.append(f'DMU:{fmt_qty(q_dim)}')
+            if q_irs>0: locs.append(f'DMU IRS:{fmt_qty(q_irs)}')
             # Only show in alt box if the alternate has stock (NLS or not)
             if not locs:
                 continue
@@ -401,6 +537,10 @@ def main():
 if __name__ == "__main__":
     try:
         main()
+    except BarrelPriceError as e:
+        print(f"\n{e}")
+        input("\nPress Enter to close...")
+        sys.exit(1)
     except FileNotFoundError as e:
         print(f"\n❌ FILE NOT FOUND: {e}")
         input("\nPress Enter to close...")
