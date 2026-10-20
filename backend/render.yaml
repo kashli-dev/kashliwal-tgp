@@ -5,11 +5,6 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
+      # Neon connection string — set manually in the Render dashboard (not stored in this file)
       - key: DATABASE_URL
-        fromDatabase:
-          name: kashliwal-tgp-db
-          property: connectionString
-
-databases:
-  - name: kashliwal-tgp-db
-    plan: free
+        sync: false

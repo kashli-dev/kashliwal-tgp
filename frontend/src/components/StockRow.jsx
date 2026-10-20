@@ -1,12 +1,9 @@
 import { useState } from "react"
 import { deadAge } from "../utils"
 
+// Bins are cleaned in tgp_refresh.py; this only guards against empty values
 function isValidBin(val) {
-  if (!val || val.trim() === "") return false
-  const v = val.trim()
-  if (v.includes(":")) return false
-  if (/^\d+$/.test(v)) return false
-  return true
+  return !!val && val.trim() !== ""
 }
 
 export default function StockRow({ label, stock, transit, bins, lastReceived, forceDead }) {

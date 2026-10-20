@@ -7,18 +7,22 @@ const APP_PASSWORD = "kashliwal2026"
 
 const STORAGE_KEY = "tgp_auth_date"
 
+// Today's date in IST as yyyy-mm-dd (en-CA formats dates this way)
+const todayIST = () =>
+  new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })
+
 export function isAuthed() {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (!stored) return false
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayIST()
     return stored === today
   } catch { return false }
 }
 
 export function setAuthed() {
   try {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = todayIST()
     localStorage.setItem(STORAGE_KEY, today)
   } catch {}
 }

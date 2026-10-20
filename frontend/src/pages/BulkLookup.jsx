@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { fetchBulk } from "../api"
+import { fetchBulk, errorMessage } from "../api"
 import LastUpdated from "../components/LastUpdated"
 import * as XLSX from "xlsx"
 import { deadAge } from "../utils"
@@ -181,12 +181,16 @@ export default function BulkLookup() {
 
   const handleLookup = async () => {
     if (!partList.length) return
+    if (partList.length > 500) {
+      setError(`Maximum 500 parts per lookup. You entered ${partList.length} \u2014 please split the list.`)
+      return
+    }
     setLoading(true); setError(null); setRetrying(false)
     try {
       const data = await fetchBulk(partList, () => setRetrying(true))
       setResults(data)
-    } catch {
-      setError("Could not reach the server. Please try again.")
+    } catch (err) {
+      setError(errorMessage(err))
     } finally {
       setLoading(false)
       setRetrying(false)

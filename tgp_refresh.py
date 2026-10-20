@@ -227,14 +227,15 @@ def main():
 
     def bins_map(df):
         """Returns dict of part# -> semicolon-separated unique bin locations.
-        Skips any location value containing ':' (used as a hack for alternate part notes)."""
+        Skips any location value containing ':' (used as a hack for alternate part notes)
+        and any purely numeric value (not a real bin)."""
         d = {}
         for _, r in df.iterrows():
             p = r['Part #']
             locs = []
             for col in ['Location 1', 'Location 2', 'Location 3']:
                 v = str(r.get(col, '') or '').strip()
-                if v and v != 'nan' and ':' not in v:
+                if v and v != 'nan' and ':' not in v and not re.fullmatch(r'\d+', v):
                     locs.append(v)
             if locs:
                 existing = d.get(p, [])

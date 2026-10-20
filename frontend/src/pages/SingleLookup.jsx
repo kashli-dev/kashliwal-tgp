@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react"
-import { fetchPart, fetchSearch } from "../api"
+import { fetchPart, fetchSearch, errorMessage } from "../api"
 import StockRow from "../components/StockRow"
 import LastUpdated from "../components/LastUpdated"
 import { deadAge } from "../utils"
@@ -37,8 +37,8 @@ export default function SingleLookup() {
     try {
       const data = await fetchPart(q, () => setRetrying(true))
       setResult(data)
-    } catch {
-      setError("Could not reach the server. Please try again.")
+    } catch (err) {
+      setError(errorMessage(err))
     } finally {
       setLoading(false)
       setRetrying(false)
@@ -259,7 +259,7 @@ export default function SingleLookup() {
 
             <div className="result-meta">
               <span className="result-mrp">
-                Rs.&nbsp;{Number(result.mrp).toLocaleString("en-IN", {maximumFractionDigits:0})}
+                {result.mrp ? <>Rs.&nbsp;{Number(result.mrp).toLocaleString("en-IN", {maximumFractionDigits:0})}</> : "\u2014"}
               </span>
               {result.discount_code && result.discount_code !== "--" && (
                 <span className="result-dc">{result.discount_code}</span>

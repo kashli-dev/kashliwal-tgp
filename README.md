@@ -1,106 +1,90 @@
-# Kashliwal Motors — Parts Lookup App
-## Deployment Guide
+# Kashliwal Motors — TGP Parts Lookup
+## Setup & Refresh Guide
+
+Stack: React + Vite (frontend, Render static site) · FastAPI (backend, Render web service) · Neon PostgreSQL (database).
 
 ---
 
 ## STEP 1 — Push code to GitHub
 
-1. Create a free account at github.com if you don't have one
-2. Create a new repository called `kashliwal-tgp`
-3. Upload the `backend/` and `frontend/` folders to it
+1. Create a repository called `kashliwal-tgp`
+2. Upload the `backend/` and `frontend/` folders to it
 
 ---
 
-## STEP 2 — Create Render account
+## STEP 2 — Create the Neon database
 
-Sign up at render.com (free)
-
----
-
-## STEP 3 — Create the PostgreSQL database
-
-1. In Render dashboard → New → PostgreSQL
-2. Name: `kashliwal-tgp-db`
-3. Plan: Free
-4. Click Create
-5. Once created, copy the **External Database URL** — you'll need it twice
+1. Sign up at neon.tech and create a project
+2. Copy the **connection string** (it starts with `postgresql://`) — you need it for the backend and the refresh script
+3. Open the Neon SQL editor and run the contents of `backend/schema.sql`
+   (`schema.sql` is for fresh setups only — it is not a migration script)
 
 ---
 
-## STEP 4 — Set up the database schema
+## STEP 3 — Deploy the backend (API)
 
-1. Install psql on your PC, OR use any PostgreSQL client (e.g. DBeaver, free)
-2. Connect using the External Database URL from Step 3
-3. Run the contents of `backend/schema.sql`
-
----
-
-## STEP 5 — Deploy the backend (API)
-
-1. In Render → New → Web Service
-2. Connect your GitHub repo
-3. Settings:
+1. In Render → New → Web Service, connect the GitHub repo
+2. Settings:
    - Name: `kashliwal-tgp-api`
    - Root Directory: `backend`
    - Runtime: Python
    - Build Command: `pip install -r requirements.txt`
    - Start Command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-   - Plan: Free
-4. Environment Variables → Add:
-   - Key: `DATABASE_URL`
-   - Value: paste the Internal Database URL from Step 3
-5. Click Deploy
-6. Wait ~2 min. Test by visiting: `https://kashliwal-tgp-api.onrender.com/health`
-   You should see: `{"status":"ok"}`
+3. Environment Variables → add `DATABASE_URL` = the Neon connection string
+4. Deploy, then test `https://kashliwal-tgp-api.onrender.com/health` — you should see `{"status":"ok"}`
 
 ---
 
-## STEP 6 — Deploy the frontend
+## STEP 4 — Deploy the frontend
 
-1. In Render → New → Static Site
-2. Connect the same GitHub repo
-3. Settings:
+1. In Render → New → Static Site, connect the same repo
+2. Settings:
    - Name: `kashliwal-tgp`
    - Root Directory: `frontend`
    - Build Command: `npm install && npm run build`
    - Publish Directory: `dist`
-4. Environment Variables → Add:
-   - Key: `VITE_API_URL`
-   - Value: `https://kashliwal-tgp-api.onrender.com`
-5. Click Deploy
-6. Your app will be live at: `https://kashliwal-tgp.onrender.com`
+3. Environment Variables → add `VITE_API_URL` = `https://kashliwal-tgp-api.onrender.com`
+4. Live at `https://kashliwal-tgp.onrender.com`
 
 ---
 
-## STEP 7 — Configure the refresh script
+## STEP 5 — Configure the refresh script (one-time)
 
-1. Open `tgp_refresh.py` in any text editor
-2. Paste your **External Database URL** into the `DATABASE_URL` line
-3. Set `EXPORT_FOLDER` to wherever your Siebel CSVs are saved
-4. Save the file
-
----
-
-## DAILY REFRESH (every morning)
-
-1. Export 6 CSVs from Siebel (3 inventory + 3 transit) + price list
-2. Save them in the correct subfolders (see folder structure in script)
-3. Double-click `tgp_refresh.py`
-4. Wait ~30 seconds for ✅ REFRESH COMPLETE
-5. All DSRs see fresh data immediately
-
-**To run on a different PC:** copy `tgp_refresh.py` + `Alternate_Part_Numbers.xlsx`
-to that machine. Python + `pip install pandas openpyxl psycopg2-binary` required.
+1. `pip install pandas openpyxl psycopg2-binary requests lxml`
+2. Open `tgp_refresh.py` and set:
+   - `DATABASE_URL` — the Neon connection string
+   - `EXPORT_FOLDER` — where the Tata exports are saved (default `C:\TataExports`)
+3. The two Google Sheets (`ALT_SHEET_ID` for alternate parts, `NLS_SHEET_ID` for No Longer Serviced parts)
+   are read directly by the script. They must stay shareable by link ("Anyone with the link can view").
 
 ---
 
-## UPGRADING TO PAID (when ready)
+## REFRESH (whenever new Tata data is received)
 
-- In Render dashboard, click your web service → Settings → Change Plan → Starter ($7/month)
-- No code changes needed. Zero downtime upgrade.
+Put the files in `EXPORT_FOLDER` exactly like this:
 
-## CUSTOM DOMAIN (when ready)
+```
+TataExports/
+  Inventory/
+    dibrugarh_inventory.xlsx
+    dimapur_inventory.xlsx
+    jorhat_inventory.xlsx
+  In transit/
+    dibrugarh_transit.csv
+    dimapur_transit.csv
+    jorhat_transit.csv
+  price_list.HTML      (HTML export; the file name must contain "price" or "output")
+```
 
-- Buy domain (e.g. Namecheap, ~₹800/year)
-- In Render → your frontend service → Settings → Custom Domain
-- Add a CNAME record pointing to Render — takes 5 minutes
+Then double-click `tgp_refresh.py` and wait for "REFRESH COMPLETE" (a few minutes).
+The script rebuilds `tgp_parts` and `part_alternates` from scratch and adds a row to `tgp_meta`.
+While it runs, lookups wait until it finishes, then show the new data.
+
+---
+
+## NOTES
+
+- **Cold starts:** Render's free web service sleeps after 15 minutes idle. The app retries automatically
+  and shows "Server waking up…". Upgrading to Render Starter ($7/month) removes this — no code changes needed.
+- **Deploy order:** backend first, then frontend. CSS/JSX changes only need a frontend deploy.
+- **Custom domain:** Render → frontend service → Settings → Custom Domain, then add the CNAME record.
