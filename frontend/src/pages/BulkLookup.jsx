@@ -12,6 +12,24 @@ function stockVal(val) {
   return { text: n.toLocaleString(), cls: "in" }
 }
 
+// Age of dead stock for one warehouse cell: "1.5 yr", "dead" (IRS), or null when not dead
+function deadFor(stock, date, forceDead = false) {
+  if (!hasStock(stock)) return null
+  return forceDead ? "dead" : deadAge(date)
+}
+
+// Dead stock: red quantity with the age underneath. Anything else: plain value.
+function stockCls(sv, age) { return age ? "dead dead-cell" : sv.cls }
+function stockInner(sv, age) {
+  if (!age) return sv.text
+  return (
+    <span className="dead-stack">
+      <span className="dead-qty">{sv.text}</span>
+      <span className="dead-age">{age === "dead" ? "Dead" : age}</span>
+    </span>
+  )
+}
+
 function transitVal(val) {
   if (!val || val === "-" || val === "--") return ""
   const n = Number(val)
@@ -307,25 +325,32 @@ export default function BulkLookup() {
                   const jor = stockVal(row.jorhat)
                   const dim = stockVal(row.dimapur)
                   const irs = stockVal(row.dimapur_irs)
+                  const dibAge = deadFor(row.dibrugarh,  row.dib_last_received)
+                  const jorAge = deadFor(row.jorhat,     row.jor_last_received)
+                  const dimAge = deadFor(row.dimapur,    row.dim_last_received)
+                  const irsAge = deadFor(row.dimapur_irs, null, true)
                   const altDetails = (row.alt_details || []).filter(a =>
                     [a.dibrugarh, a.jorhat, a.dimapur, a.dimapur_irs].some(v => v && v !== "-" && Number(v) > 0)
                   )
                   return (
                     <tr key={i}>
                       <td className="td-idx">{i + 1}</td>
-                      <td className="td-part">{row.part_number}</td>
+                      <td className={`td-part${row.is_nls ? " nls-part" : ""}`}>
+                        {row.part_number}
+                        {row.is_nls && <span className="nls-badge-sm">NLS</span>}
+                      </td>
                       <td className="td-desc">{row.description || "—"}</td>
                       <td className="td-mrp grp-end">{formatMrp(row.mrp)}</td>
-                      <td className={`td-stock ${dib.cls}`}>{dib.text}</td>
+                      <td className={`td-stock ${stockCls(dib, dibAge)}`}>{stockInner(dib, dibAge)}</td>
                       <td className={`td-transit${showBins ? "" : " grp-end"}`}>{transitVal(row.tr_dibrugarh)}</td>
                       <td className={`td-bins bins-col dib-bins grp-end${showBins ? " visible" : ""}`}>{row.dib_bins || "—"}</td>
-                      <td className={`td-stock ${jor.cls}`}>{jor.text}</td>
+                      <td className={`td-stock ${stockCls(jor, jorAge)}`}>{stockInner(jor, jorAge)}</td>
                       <td className={`td-transit${showBins ? "" : " grp-end"}`}>{transitVal(row.tr_jorhat)}</td>
                       <td className={`td-bins bins-col jrh-bins grp-end${showBins ? " visible" : ""}`}>{row.jor_bins || "—"}</td>
-                      <td className={`td-stock ${dim.cls}`}>{dim.text}</td>
+                      <td className={`td-stock ${stockCls(dim, dimAge)}`}>{stockInner(dim, dimAge)}</td>
                       <td className={`td-transit${showBins ? "" : " grp-end"}`}>{transitVal(row.tr_dimapur)}</td>
                       <td className={`td-bins bins-col dmu-bins grp-end${showBins ? " visible" : ""}`}>{row.dim_bins || "—"}</td>
-                      {showIrs && <td className={`td-stock grp-end ${irs.cls}`}>{irs.text}</td>}
+                      {showIrs && <td className={`td-stock grp-end ${stockCls(irs, irsAge)}`}>{stockInner(irs, irsAge)}</td>}
                       <td className="td-alt">
                         {altDetails.length > 0
                           ? <div className="bulk-alt-cell">
@@ -337,14 +362,18 @@ export default function BulkLookup() {
                                   { wh: "DMU IRS", qty: a.dimapur_irs,  date: null, forceDead: true },
                                 ].filter(l => l.qty && l.qty !== "-" && Number(l.qty) > 0)
                                  .map(l => ({ ...l, age: l.forceDead ? "dead" : deadAge(l.date) }))
-                                const isDead   = locs.some(l => l.age)
-                                const pnClass  = (a.is_nls || isDead) ? "bulk-alt-pn-nls" : "bulk-alt-pn"
+                                const pnClass  = a.is_nls ? "bulk-alt-pn-nls" : "bulk-alt-pn"
                                 return (
                                   <div key={j} className="bulk-alt-entry">
                                     <span className={pnClass}>{a.part_number}</span>
                                     {a.is_nls && <span className="bulk-alt-badge-nls">NLS</span>}
                                     {locs.map((l, k) => l.age
-                                      ? <span key={k} className="bulk-alt-tag-dead">DEAD·{l.wh}:{Number(l.qty).toLocaleString()}</span>
+                                      ? (
+                                          <span key={k} className="bulk-alt-tag-dead">
+                                            <span className="bulk-alt-dead-label">{l.age === "dead" ? "Dead" : `Dead ${l.age}`}</span>
+                                            <span className="bulk-alt-dead-body">{l.wh}:{Number(l.qty).toLocaleString()}</span>
+                                          </span>
+                                        )
                                       : <span key={k} className="bulk-alt-tag">{l.wh}:{Number(l.qty).toLocaleString()}</span>
                                     )}
                                   </div>

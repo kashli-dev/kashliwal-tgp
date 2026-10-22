@@ -225,14 +225,11 @@ export default function SingleLookup() {
            .map(w => ({ wh: w.wh, age: w.forceDead ? "dead" : deadAge(w.date) }))
            .filter(w => w.age != null)
            .sort((a, b) => parseFloat(b.age) - parseFloat(a.age))
-          const altAge = altDeadWh.length > 0
-            ? altDeadWh.filter(w => w.age !== "dead").map(w => `${w.wh}:${w.age}`).join(" ") || "Dead Stock"
-            : null
           return {
             partNum:  a.part_number,
             isNls:    a.is_nls,
-            age:      altAge,
-            deadWhs:  new Set(altDeadWh.map(w => w.wh)),
+            isDead:   altDeadWh.length > 0,
+            deadWhs:  new Map(altDeadWh.map(w => [w.wh, w.age])),   // warehouse → "1.5 yr" (or "dead" for IRS)
             locs,
           }
         }).filter(e => e.locs.length > 0) // only show alts that have stock
@@ -270,10 +267,10 @@ export default function SingleLookup() {
             )}
 
             {/* Alt flag banners — one per flagged alternate */}
-            {altEntries.filter(e => e.isNls || e.age).map((e, i) => {
-              const label = [e.isNls && "NLS", e.age && "Dead Stock"].filter(Boolean).join(", ")
+            {altEntries.filter(e => e.isNls || e.isDead).map((e, i) => {
+              const label = [e.isNls && "NLS", e.isDead && "Dead Stock"].filter(Boolean).join(", ")
               return (
-                <div key={i} className="alt-flag-banner">
+                <div key={i} className={`alt-flag-banner${e.isDead ? "" : " nls-only"}`}>
                   <div className="alt-flag-banner-icon">⚠</div>
                   <div>
                     <div className="alt-flag-banner-title">
@@ -316,7 +313,7 @@ export default function SingleLookup() {
               <span>Total</span>
               <span className="stock-total-right">
                 <span className="stock-total-val">{fmtNum(total)}</span>
-                {totalTransit > 0 && <span className="stock-transit">{fmtNum(totalTransit)} In Transit</span>}
+                {totalTransit > 0 && <span className="stock-transit">+ {fmtNum(totalTransit)} In Transit</span>}
               </span>
             </div>
 
@@ -325,29 +322,37 @@ export default function SingleLookup() {
                 <div className="alt-note-inner">
                   <div className="alt-note-label">Alternate Available</div>
                   <div className="alt-alts">
-                    {altEntries.map((entry, i) => {
-                      const isFlagged = entry.isNls || entry.age
-                      return (
-                        <div key={i} className="alt-block">
-                          <span className={`alt-part-num${isFlagged ? " dead-alt" : ""}`}>
-                            {entry.partNum}
-                          </span>
-                          {entry.isNls && <span className="alt-nls-badge">NLS</span>}
-                          {entry.age   && <span className="alt-dead-badge">DEAD · {entry.age}</span>}
-                          <div className="alt-wh-row">
-                            {entry.locs.map((loc, j) => {
-                              const thisLocDead = entry.deadWhs && entry.deadWhs.has(loc.wh)
+                    {altEntries.map((entry, i) => (
+                      <div key={i} className="alt-block">
+                        <span className={`alt-part-num${entry.isNls ? " nls-alt" : ""}`}>
+                          {entry.partNum}
+                        </span>
+                        {entry.isNls && <span className="alt-nls-badge">NLS</span>}
+                        <div className="alt-wh-row">
+                          {entry.locs.map((loc, j) => {
+                            const deadAgeStr = entry.deadWhs.get(loc.wh)   // undefined when not dead
+                            const qty = Number(loc.qty).toLocaleString()
+                            if (deadAgeStr === undefined) {
                               return (
-                                <div key={j} className={`alt-wh-tag${thisLocDead ? " dead-alt-tag" : ""}`}>
+                                <div key={j} className="alt-wh-tag">
                                   <span className="alt-wh-name">{loc.wh}</span>
-                                  <span className="alt-wh-qty">{Number(loc.qty).toLocaleString()}</span>
+                                  <span className="alt-wh-qty">{qty}</span>
                                 </div>
                               )
-                            })}
-                          </div>
+                            }
+                            return (
+                              <div key={j} className="alt-wh-tag dead-alt-tag">
+                                <span className="alt-dead-label">{deadAgeStr === "dead" ? "Dead" : `Dead ${deadAgeStr}`}</span>
+                                <span className="alt-wh-body">
+                                  <span className="alt-wh-name">{loc.wh}</span>
+                                  <span className="alt-wh-qty">{qty}</span>
+                                </span>
+                              </div>
+                            )
+                          })}
                         </div>
-                      )
-                    })}
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>

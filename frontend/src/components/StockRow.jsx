@@ -26,6 +26,9 @@ export default function StockRow({ label, stock, transit, bins, lastReceived, fo
 
   const age = (!isNA && !isOOS) ? (forceDead || deadAge(lastReceived)) : null
 
+  // Dead stock quantity is red (zero stays grey, via .out-stock)
+  if (age) qtyClass = "dead-stock"
+
   const handleClick = () => { if (hasChevron) setOpen(o => !o) }
 
   // border class: dead if age exists (or forceDead), neutral otherwise
