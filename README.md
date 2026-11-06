@@ -75,11 +75,28 @@ TataExports/
     dimapur_transit.csv
     jorhat_transit.csv
   price_list.HTML      (HTML export; the file name must contain "price" or "output")
+  All India Stock.xlsx (Tata's stock at its own plants; exact file name)
 ```
 
 Then double-click `tgp_refresh.py` and wait for "REFRESH COMPLETE" (a few minutes).
-The script rebuilds `tgp_parts` and `part_alternates` from scratch and adds a row to `tgp_meta`.
+The script rebuilds `tgp_parts`, `part_alternates` and `tata_stock` from scratch and adds a row to `tgp_meta`.
 While it runs, lookups wait until it finishes, then show the new data.
+
+---
+
+## ALL INDIA STOCK (Tata stock in Single Lookup)
+
+`All India Stock.xlsx` needs the columns Plant, Material, Storage Location and Unrestricted. Rows with Storage
+Location `0001` are used, except plant 4587 (Guwahati), which uses `0010`. Quantities are summed per part per
+plant into the `tata_stock` table (the script creates it if it does not exist; `backend/schema.sql` has it too).
+The plant names and their display order are set in `TATA_PLANTS` in `backend/main.py`; an unknown plant code is
+shown as the code. Oils are not in this file, so barrels show no Tata stock.
+
+**Freshness check.** Every input file except the price list should be from today. As soon as the script starts
+it prints a bold warning for any file that is not, and repeats it at the end. A file's date is the older of its
+creation and last-modified dates, so a copied old file is still caught. If `All India Stock.xlsx` is missing or
+not from today, the refresh still runs, Tata stock is cleared, and Single Lookup shows "Latest All India Stock is
+not available" in the Tata Stock panel until a fresh file is loaded.
 
 ---
 

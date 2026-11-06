@@ -15,6 +15,7 @@ FOLDER STRUCTURE EXPECTED:
       dibrugarh_transit.csv
       jorhat_transit.csv
     output__22_.HTML  (price list — must be HTML export; CSV not accepted)
+    All India Stock.xlsx  (Tata's stock at its own plants — paste the new file here every morning)
 
 BARRELS (TMGO oils):
   Siebel stores barrel quantities in millilitres and the price list gives MRP per ml.
@@ -24,6 +25,19 @@ BARRELS (TMGO oils):
   The script stops before touching the database if a barrel is missing from the
   sheet or its sheet MRP no longer matches the Tata price list. Barrels that are in
   the NLS sheet are exempt from that check.
+
+ALL INDIA STOCK:
+  Columns used: Plant, Material, Storage Location, Unrestricted. Rows are kept when the
+  Storage Location is 0001 (0010 for plant 4587). Quantities are summed per part per plant
+  and written to the tata_stock table, which this script creates if it does not exist.
+  If the file is missing or not from today, the refresh still runs, the Tata stock is cleared
+  and the app shows "Latest All India Stock is not available".
+
+FRESHNESS CHECK:
+  Every input file except the price list should have been downloaded today. Right after the
+  script starts it prints a bold warning for any file that is missing (All India Stock) or not
+  from today. A file's date is the OLDER of its creation date and its last-modified date, so a
+  copied old file is still caught. The same warnings are repeated at the end.
 
 SETUP (one-time):
   pip install pandas openpyxl psycopg2-binary requests lxml
@@ -36,7 +50,7 @@ import sys
 import warnings
 import psycopg2
 import psycopg2.extras
-from datetime import datetime
+from datetime import datetime, date
 from pathlib import Path
 
 # Suppress openpyxl 'no default style' warning from Siebel Excel exports
@@ -55,6 +69,11 @@ ALT_SHEET_ID = "16U-Mxf-rpsDe1VWstOihkO46tkvBOX0HE_nX6lPcL7Y"
 NLS_SHEET_ID = "1FwL6bSLZfHRgoX5FkEPxB_Z9r6DU8Q_nJ3QkdyuM_X4"
 # Google Sheet ID for Barrel MRPs (TMGO barrels): col A = part number, col B = MRP, header row
 BARREL_SHEET_ID = "1WCf2K8_wEl32nCNojVPSdMUdtI7xLod0aerbBLvE5_A"
+
+# All India Stock (Tata's own stock) — the file sits in EXPORT_FOLDER next to the price list:
+TATA_STOCK_FILE = "All India Stock.xlsx"
+TATA_DEFAULT_STORAGE_LOC = "0001"
+TATA_STORAGE_LOC_OVERRIDE = {"4587": "0010"}   # Guwahati keeps its stock in storage location 0010
 # ──────────────────────────────────────────────────────────────────────────────
 
 
@@ -103,6 +122,87 @@ def find_price_list(folder):
         f"No HTML price list found in {folder}\n"
         f"   Export the price list as HTML from Siebel (not CSV)."
     )
+
+
+# ── FRESHNESS CHECK + WARNINGS ────────────────────────────────────────────────
+if os.name == 'nt':
+    os.system("")   # switches on bold/colour text in the Windows console
+_BOLD = "\033[1;31m" if sys.stdout.isatty() else ""
+_END  = "\033[0m"   if sys.stdout.isatty() else ""
+
+def print_warnings(warnings, title):
+    if not warnings:
+        return
+    bar = "!" * 70
+    print(f"\n{_BOLD}{bar}")
+    print(f"  ⚠  {title}")
+    for w in warnings:
+        print(f"  •  {w}")
+    print(f"{bar}{_END}\n")
+
+def file_date(path):
+    """Date of a file = the OLDER of its creation date and its last-modified date.
+    Copying a file resets its creation date but keeps the modified date, so taking the
+    older of the two still catches an old file that was copied in today."""
+    st = os.stat(path)
+    created = getattr(st, 'st_birthtime', None)
+    if created is None:
+        created = st.st_ctime if os.name == 'nt' else st.st_mtime
+    return date.fromtimestamp(min(created, st.st_mtime))
+
+def preflight(export, inv_folder, tr_folder):
+    """Runs first, before any slow work, so problems show within a couple of seconds.
+    Returns (warnings, tata_status) where tata_status is 'ok', 'missing' or 'stale'."""
+    warnings = []
+    today = date.today()
+    required = [(f"Inventory/{n}_inventory.xlsx", inv_folder / f"{n}_inventory.xlsx") for n in ('dibrugarh', 'dimapur', 'jorhat')]
+    required += [(f"In transit/{n}_transit.csv", tr_folder / f"{n}_transit.csv") for n in ('dibrugarh', 'dimapur', 'jorhat')]
+    for label, path in required:
+        if not path.exists():
+            continue   # a missing required file stops the script later with its own clear error
+        d = file_date(path)
+        if d != today:
+            warnings.append(f"{label} is NOT FROM TODAY (dated {d:%d-%b-%Y}). Export a fresh copy from Siebel.")
+
+    tata_path = export / TATA_STOCK_FILE
+    if not tata_path.exists():
+        tata_status = 'missing'
+        warnings.append(f"ALL INDIA STOCK FILE NOT FOUND: {tata_path}")
+        warnings.append("Tata stock will show as NOT AVAILABLE in the app. Paste today's file and run this again.")
+    else:
+        d = file_date(tata_path)
+        if d != today:
+            tata_status = 'stale'
+            warnings.append(f"ALL INDIA STOCK FILE IS NOT FROM TODAY (dated {d:%d-%b-%Y}).")
+            warnings.append("Tata stock will show as NOT AVAILABLE in the app. Paste today's file and run this again.")
+        else:
+            tata_status = 'ok'
+    print_warnings(warnings, "CHECK YOUR FILES BEFORE RELYING ON THIS REFRESH")
+    return warnings, tata_status
+
+def read_tata_stock(path):
+    """All India Stock -> list of (part, plant, qty). Storage Location 0001 only, except plants
+    listed in TATA_STORAGE_LOC_OVERRIDE (4587 uses 0010). Quantities summed per part per plant."""
+    df = pd.read_excel(path, dtype=str)
+    df.columns = [str(c).strip() for c in df.columns]
+    need = ['Plant', 'Material', 'Storage Location', 'Unrestricted']
+    missing = [c for c in need if c not in df.columns]
+    if missing:
+        raise ValueError(f"{TATA_STOCK_FILE} is missing column(s): {', '.join(missing)}. "
+                         f"Expected: {', '.join(need)}.")
+    df['Plant'] = df['Plant'].astype(str).str.strip()
+    df['Material'] = df['Material'].apply(lambda s: str(s).strip().strip('"').strip())
+    sloc = df['Storage Location'].astype(str).str.strip()
+    df['Storage Location'] = sloc.where(~sloc.str.isdigit(), sloc.str.zfill(4))
+    wanted = df['Plant'].map(lambda p: TATA_STORAGE_LOC_OVERRIDE.get(p, TATA_DEFAULT_STORAGE_LOC))
+    df = df[df['Storage Location'] == wanted].copy()
+    df['Qty'] = pd.to_numeric(df['Unrestricted'].astype(str).str.replace(',', '', regex=False), errors='coerce')
+    df = df[df['Qty'] > 0]
+    if df.empty:
+        raise ValueError(f"{TATA_STOCK_FILE} has no usable stock rows (storage location "
+                         f"{TATA_DEFAULT_STORAGE_LOC}, or 0010 for 4587). Is it the right file?")
+    g = df.groupby(['Material', 'Plant'], as_index=False)['Qty'].sum()
+    return [(m, p, round(float(q), 2)) for m, p, q in g.itertuples(index=False, name=None)]
 
 
 # ── BARREL HELPERS ────────────────────────────────────────────────────────────
@@ -221,6 +321,9 @@ def main():
     inv_folder = export / "Inventory"
     tr_folder  = export / "In transit"
 
+    # ── Check the input files first so any problem is visible straight away
+    file_warnings, tata_status = preflight(export, inv_folder, tr_folder)
+
     # ── Load inventory Excel files (xlsx preserves leading zeros)
     log("Loading inventory files...")
     dib = read_inv(inv_folder / "dibrugarh_inventory.xlsx")
@@ -232,6 +335,15 @@ def main():
     tr_dib = read_transit(tr_folder / "dibrugarh_transit.csv")
     tr_dim = read_transit(tr_folder / "dimapur_transit.csv")
     tr_jor = read_transit(tr_folder / "jorhat_transit.csv")
+
+    # ── Load All India Stock (skipped, and cleared in the database, if missing or not from today)
+    tata_rows = []
+    if tata_status == 'ok':
+        log("Loading All India Stock...")
+        tata_rows = read_tata_stock(export / TATA_STOCK_FILE)
+        log(f"  {len(tata_rows):,} part/plant stock lines")
+    else:
+        log(f"All India Stock {tata_status} — Tata stock will be cleared in the app")
 
     # ── Load price list
     log("Loading price list...")
@@ -522,15 +634,34 @@ def main():
         """, alt_pairs[i:i+BATCH], page_size=BATCH)
     print(f"  {len(alt_pairs):,} alternate pairs written.")
 
+    log("Updating Tata stock...")
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS tata_stock (
+            part_number TEXT NOT NULL,
+            plant       TEXT NOT NULL,
+            qty         NUMERIC(14,2) NOT NULL,
+            PRIMARY KEY (part_number, plant)
+        )
+    """)
+    cur.execute("TRUNCATE TABLE tata_stock")   # an empty table = 'Tata stock not available' in the app
+    tata_keep = [r for r in tata_rows if r[0] in known_parts]
+    for i in range(0, len(tata_keep), BATCH):
+        psycopg2.extras.execute_values(cur,
+            "INSERT INTO tata_stock (part_number, plant, qty) VALUES %s",
+            tata_keep[i:i+BATCH], page_size=BATCH)
+    log(f"  {len(tata_keep):,} Tata stock lines written"
+        + (f" ({len(tata_rows) - len(tata_keep):,} skipped: part not in parts list)" if len(tata_rows) > len(tata_keep) else ""))
+
     cur.execute("INSERT INTO tgp_meta DEFAULT VALUES")
     conn.commit()
     conn.close()
 
     print()
     print("="*55)
-    print(f"  ✅ REFRESH COMPLETE")
+    print(f"  {'⚠ REFRESH COMPLETE — WITH WARNINGS (see below)' if file_warnings else '✅ REFRESH COMPLETE'}")
     print(f"     {len(rows):,} parts loaded at {datetime.now().strftime('%d-%b-%Y %H:%M')}")
     print("="*55 + "\n")
+    print_warnings(file_warnings, "REMINDER — FILES THAT NEED ATTENTION")
     input("Press Enter to close...")
 
 

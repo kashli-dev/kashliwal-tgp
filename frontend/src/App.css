@@ -1003,3 +1003,33 @@ body {
   80%       { transform: translateX(5px); }
 }
 .login-box.shake { animation: shake 0.45s ease; }
+
+/* ── TATA STOCK (Single Lookup) ── */
+.tata-wrap { margin-top: 18px; }
+.tata-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%;
+  background: none; border: none; border-top: 1px solid var(--border);
+  color: var(--white25);
+  font-family: var(--font); font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+  padding: 12px 0 2px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.tata-toggle:hover, .tata-toggle.open { color: var(--white80); }
+.tata-chev { font-size: 8px; transition: transform 0.2s; }
+.tata-toggle.open .tata-chev { transform: rotate(180deg); }
+.tata-panel {
+  margin-top: 10px;
+  background: var(--panel2);
+  border: 1px solid var(--border2);
+  padding: 12px 14px;
+  animation: fadeIn 0.2s ease;
+}
+.tata-head { font-size: 8px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--white); font-weight: 600; margin-bottom: 4px; }
+.tata-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--border); }
+.tata-loc { flex: 1; font-size: 11px; font-weight: 500; color: var(--white50); text-transform: uppercase; }
+.tata-qty { font-family: var(--mono); font-size: 14px; font-weight: 500; color: var(--white); }
+.tata-none, .tata-warn { font-size: 11px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; padding: 8px 0 2px; border-top: 1px solid var(--border); }
+.tata-none { color: var(--white50); }
+.tata-warn { color: var(--amber); }

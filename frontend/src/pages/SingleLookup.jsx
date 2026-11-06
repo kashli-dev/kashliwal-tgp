@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react"
 import { fetchPart, fetchSearch, errorMessage } from "../api"
 import StockRow from "../components/StockRow"
 import LastUpdated from "../components/LastUpdated"
+import TataStock from "../components/TataStock"
 import { deadAge, cleanPart, hasStock } from "../utils"
 
 export default function SingleLookup() {
@@ -357,6 +358,8 @@ export default function SingleLookup() {
                 </div>
               </div>
             )}
+
+            <TataStock key={result.part_number} data={result.tata_stock} />
           </div>
         )
       })()}

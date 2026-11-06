@@ -27,6 +27,35 @@ def get_conn():
 def normalize(part: str) -> str:
     return part.strip().upper()
 
+# Tata plants, in the order they are shown. An unknown plant code is shown as the code itself, after these.
+TATA_PLANTS = [
+    ("4587", "Guwahati"),
+    ("4460", "Howrah"),
+    ("4582", "Palwal"),
+    ("4466", "Pune"),
+    ("4581", "Bangalore"),
+]
+TATA_PLANT_NAMES = dict(TATA_PLANTS)
+
+def get_tata_stock(conn, part):
+    """Tata's own stock for one part, or None if the tata_stock table can't be read
+    (e.g. before the first refresh with the new script) so the lookup itself never fails.
+    available=False means no All India Stock is loaded (file missing or not from today)."""
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT EXISTS (SELECT 1 FROM tata_stock) AS loaded")
+        if not cur.fetchone()["loaded"]:
+            return {"available": False, "rows": []}
+        cur.execute("SELECT plant, qty FROM tata_stock WHERE part_number = %s", (part,))
+        found = {r["plant"]: float(r["qty"]) for r in cur.fetchall()}
+    except Exception:
+        conn.rollback()
+        return None
+    codes = [c for c, _ in TATA_PLANTS if c in found] + sorted(c for c in found if c not in TATA_PLANT_NAMES)
+    rows = [{"plant": TATA_PLANT_NAMES.get(c, c),
+             "qty": int(found[c]) if found[c].is_integer() else found[c]} for c in codes]
+    return {"available": True, "rows": rows}
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -88,6 +117,8 @@ def get_part(part_number: str):
             ORDER BY a.part_number
         """, (normalize(part_number),))
         result["alt_details"] = [dict(r) for r in cur.fetchall()]
+
+        result["tata_stock"] = get_tata_stock(conn, normalize(part_number))
 
         return result
     except Exception as e:

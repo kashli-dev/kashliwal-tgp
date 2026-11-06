@@ -38,6 +38,15 @@ CREATE TABLE IF NOT EXISTS part_alternates (
     PRIMARY KEY (part_number, alt_part_number)
 );
 
+-- Tata's own stock (All India Stock file): one row per part per plant. No foreign key on purpose,
+-- so the refresh can clear and reload it independently. tgp_refresh.py also creates it if missing.
+CREATE TABLE IF NOT EXISTS tata_stock (
+    part_number TEXT NOT NULL,
+    plant       TEXT NOT NULL,
+    qty         NUMERIC(14,2) NOT NULL,
+    PRIMARY KEY (part_number, plant)
+);
+
 CREATE INDEX IF NOT EXISTS idx_tgp_parts_number ON tgp_parts (part_number);
 CREATE INDEX IF NOT EXISTS idx_tgp_parts_desc ON tgp_parts USING gin(to_tsvector('english', coalesce(description,'')));
 CREATE INDEX IF NOT EXISTS idx_part_alternates_part ON part_alternates (part_number);
